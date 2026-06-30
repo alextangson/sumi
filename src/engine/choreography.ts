@@ -29,6 +29,20 @@ export function phaseProgress(t: number, phases: Phase[]): number {
   return 1;
 }
 
+function clamp01(t: number): number {
+  return t < 0 ? 0 : t > 1 ? 1 : t;
+}
+
+export function easedProgress(
+  rawT: number,
+  phases?: Phase[],
+  ease?: (t: number) => number,
+): number {
+  if (phases && phases.length > 0) return phaseProgress(rawT, phases);
+  if (ease) return ease(clamp01(rawT));
+  return easeInOut(clamp01(rawT));
+}
+
 export function particleT(
   globalT: number,
   stagger: number,

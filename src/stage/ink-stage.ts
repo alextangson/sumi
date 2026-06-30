@@ -1,13 +1,14 @@
 import type { Rect } from '../types';
 import type { Field } from '../engine/field';
 import type { Palette } from '../engine/palette';
-import { easeInOut } from '../engine/choreography';
+import { easedProgress, type Phase } from '../engine/choreography';
+export type { Phase };
 import { draw, buildSprites, type ParticleShape } from '../engine/renderer';
 import { mapNormalizedToRect } from './map';
 
 export type StageEnv = { reducedMotion: boolean; mobile: boolean; printing: boolean };
 export type StageMode = 'auto' | 'animate' | 'static';
-export type MorphOpts = { durationMs?: number; stagger?: number; onSettle?: () => void };
+export type MorphOpts = { durationMs?: number; stagger?: number; onSettle?: () => void; phases?: Phase[]; ease?: (t: number) => number };
 export type InkStage = {
   isStatic(): boolean;
   snapshotFor(rect: Rect): void;
@@ -107,7 +108,7 @@ export function createInkStage(
 
     function tick(time: number): void {
       if (start < 0) start = time;
-      const m = easeInOut(Math.min(1, (time - start) / durationMs));
+      const m = easedProgress((time - start) / durationMs, opts?.phases, opts?.ease);
       field.step({ from, to, m, stagger });
       if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites);
       if (m >= 1) {
