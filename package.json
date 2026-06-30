@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "build": "tsup src/index.ts --format esm,iife --global-name Inkmote --dts",
+    "build": "tsup src/index.ts --format esm,iife --global-name Inkmote --dts && node scripts/size.mjs",
     "size": "node scripts/size.mjs"
   },
   "devDependencies": {
