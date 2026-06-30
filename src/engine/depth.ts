@@ -29,7 +29,7 @@ import type { Pt, Rng } from '../types';
  * x/y/lvl are preserved unchanged.
  */
 export function withDepth(pts: Pt[], amplitude: number): Pt[] {
-  return pts.map((p) => ({ ...p, z: coherentDepth(p.x, p.y, amplitude) }));
+  return pts.map((p) => ({ ...p, z: (p.z ?? 0) + coherentDepth(p.x, p.y, amplitude) }));
 }
 
 /**
@@ -57,7 +57,7 @@ export function withVolume(
   const t = thickness ?? amplitude * 0.6;
   return pts.map((p) => ({
     ...p,
-    z: coherentDepth(p.x, p.y, amplitude) + (rng() - 0.5) * 2 * t,
+    z: (p.z ?? 0) + coherentDepth(p.x, p.y, amplitude) + (rng() - 0.5) * 2 * t,
   }));
 }
 
