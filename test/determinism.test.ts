@@ -58,10 +58,10 @@ describe('fromImageData determinism regression', () => {
     const opts = { step: 1, minInk: 0.01, levels: 24 };
     const pts = fromImageData(buf, N, opts, createRng(SEED));
     const sig = signature(pts);
-    // To update: run the test once to get the new sig, then update this string.
-    // This test INTENTIONALLY hardcodes the output — it is a regression lock.
-    // To strengthen: hardcode LOCKED after first run.
-    const LOCKED = signature(fromImageData(makeTestBuffer(), N, opts, createRng(SEED)));
+    // HARDCODED snapshot: any change to sampling/resampling math will break this test.
+    // To update after an intentional algorithm change: run the test once, capture the
+    // new sig from console output, and paste it here.
+    const LOCKED = '-0.1771,-0.4392,23|0.0570,-0.4244,23|0.3341,-0.5000,23|-0.1232,-0.4587,23|0.4414,-0.3838,23';
     expect(sig).toBe(LOCKED);
   });
 });

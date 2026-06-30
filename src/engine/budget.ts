@@ -3,10 +3,11 @@
  * Pure function — no DOM access required; width/dpr default from globals when available.
  *
  * Tier table (desktop-first):
- *   width ≥ 1200, dpr ≤ 1  → 12000–15000  (high-res desktop)
- *   width ≥ 768             →  6000–8000   (normal desktop / large tablet)
- *   width ≥ 480             →  3000–4000   (small tablet / landscape mobile)
- *   width  < 480            →  2000–2500   (portrait mobile)
+ *   width ≥ 1200, dpr ≤ 1  → 15000  (high-res desktop, low dpr)
+ *   width ≥ 1200, dpr > 1  → 12000  (high-res desktop, high dpr)
+ *   width ≥ 768             →  8000  (normal desktop / large tablet)
+ *   width ≥ 480             →  4000  (small tablet / landscape mobile)
+ *   width  < 480            →  2000  (portrait mobile)
  *
  * Cap: never exceeds 15000 (the spec ≤15k bound).
  */
