@@ -1,4 +1,3 @@
-import { createInkStage } from './stage/ink-stage';
 import { textReveal } from './components/text-reveal';
 
 export type InkSpec = {
@@ -51,7 +50,3 @@ export function autoInit(root: ParentNode): void {
     }
   }
 }
-
-// Satisfy the import of createInkStage so the dependency contract is wired
-// for the demo deck (Task 12); it is not called in this file directly.
-void createInkStage;
