@@ -4,6 +4,7 @@ import type { Palette } from '../engine/palette';
 import { easedProgress, type Phase } from '../engine/choreography';
 export type { Phase };
 import { draw, buildSprites, type ParticleShape, type ViewParams } from '../engine/renderer';
+export type { ViewParams };
 import { mapNormalizedToRect } from './map';
 
 export type StageEnv = { reducedMotion: boolean; mobile: boolean; printing: boolean };
@@ -29,12 +30,12 @@ export type TiltOpts = {
   depth?: boolean;
   /**
    * Maximum yaw angle in radians driven by mouse X position.
-   * Default 0.6 rad (~34°).
+   * Default 0.42 rad (~24°).
    */
   maxYaw?: number;
   /**
    * Maximum pitch angle in radians driven by mouse Y position.
-   * Default 0.3 rad (~17°).
+   * Default 0.16 rad (~9°).
    */
   maxPitch?: number;
   /**
@@ -42,20 +43,10 @@ export type TiltOpts = {
    * Default 0.06.
    */
   smoothing?: number;
-  /**
-   * Constant auto-yaw drift per frame (radians). Adds life without mouse.
-   * Default 0.0003.
-   */
-  autoDrift?: number;
   /** Fixed oblique yaw used in static mode (reduced-motion/mobile/print). Default 0.12. */
   staticYaw?: number;
   /** Fixed oblique pitch used in static mode. Default 0.06. */
   staticPitch?: number;
-  /**
-   * Depth amplitude for coherent z-field applied to particle formations (normalized units).
-   * Default 0.22 — visible volume, tasteful. Components read this when building formations.
-   */
-  amplitude?: number;
 };
 
 function defaultEnv(): StageEnv {
@@ -84,10 +75,8 @@ export function createInkStage(
     maxYaw: (tiltInput as TiltOpts | undefined)?.maxYaw ?? 0.42,
     maxPitch: (tiltInput as TiltOpts | undefined)?.maxPitch ?? 0.16,
     smoothing: (tiltInput as TiltOpts | undefined)?.smoothing ?? 0.06,
-    autoDrift: (tiltInput as TiltOpts | undefined)?.autoDrift ?? 0.0003,
     staticYaw: (tiltInput as TiltOpts | undefined)?.staticYaw ?? 0.12,
     staticPitch: (tiltInput as TiltOpts | undefined)?.staticPitch ?? 0.06,
-    amplitude: (tiltInput as TiltOpts | undefined)?.amplitude ?? 0.06,
   };
 
   let rafId = 0;

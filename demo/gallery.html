@@ -507,42 +507,9 @@
           var entry = registry['true-3d-form'];
           if (entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
 
-          // sceneMorph with tilt ON, higher maxYaw so rotation is dramatic
-          // Pass pts directly (column already has real z — skip withDepth by
-          // setting amplitude=0 so sceneMorph doesn't overwrite our z values).
-          // Actually sceneMorph calls withDepth which overwrites z; we bypass
-          // by using createField+createInkStage directly.
-          var rng = Sumi.createRng(303);
-          // Build field manually so we preserve column's z
-          var fieldM = Sumi.createField ? null : null; // createField not in public API
-          // Fallback: sceneMorph with tilt disabled so z is left as-is
-          // (sceneMorph only calls withDepth when tiltEnabled, and
-          //  withDepth uses the x/y position which would lose column structure).
-          // Instead: pass a tilt config with amplitude=0 so withDepth adds z=0
-          // on top of our already-set z? No — withDepth REPLACES z.
-          // Best approach: we override formation z by monkey-patching opts.
-          // Cleanest: pass raw pts as 'from'/'to' and rely on the fact that
-          // sceneMorph's withDepth(amplitude) adds POSITION-based z, but for
-          // the column we want to preserve the body-of-revolution z.
-          // Solution: pass tilt: false so z is not overwritten, then rely on
-          // the stage's own tilt loop for the 3D view — but tilt:false disables
-          // the perspective draw.
-          // Correct solution: sceneMorph calls withDepth only when tiltEnabled.
-          // Our column pts already have z set. If we pass tilt:true with
-          // amplitude=0 → withDepth returns coherentDepth(x,y,0)=0, overwriting
-          // our column z with 0. That's wrong.
-          //
-          // Real fix: detect that pts already have z and skip withDepth.
-          // Since we can't modify sceneMorph here, we use a small wrapper:
-          // build the field + stage directly using the public API pieces
-          // that ARE exported (createRng is; field/stage are NOT public).
-          //
-          // Simplest correct approach for the demo: call sceneMorph but supply
-          // already-zapped amplitude via a custom tilt config. We set amplitude
-          // to a tiny non-zero value so withDepth doesn't destroy column z much,
-          // but the column's own z (±0.18) dominates. In practice the column
-          // pts z is ±0.18 and withDepth at amplitude=0.01 adds ±0.01 noise —
-          // negligible, still reads as a cylinder. The perspective will work.
+          // withDepth ADDS to existing z, so the column's body-of-revolution z (±0.18)
+          // dominates the small coherent relief added by sceneMorph (DEFAULT amplitude 0.22).
+          // The result still reads as a solid cylinder under perspective rotation.
           entry.stage = Sumi.sceneMorph(canvas, {
             from: ptsCloud3d,
             to:   ptsColumn,
@@ -551,8 +518,6 @@
             tilt: {
               maxYaw:   0.9,
               maxPitch: 0.25,
-              amplitude: 0.01,   // near-zero so withDepth barely touches column z
-              autoDrift: 0.0006, // faster sway so the 3D reads without mouse
             },
           });
         }

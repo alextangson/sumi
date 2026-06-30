@@ -33,7 +33,7 @@ export type ColumnOpts = {
  *   z' = −x·sin(α) + z·cos(α). A point at (r·cos(θ), v, r·sin(θ)) maps to
  *   (r·cos(θ−α), v, r·sin(θ−α)) — i.e. every point stays on the same cylinder
  *   surface at the same height. The whole column spins as one rigid volume.
- *   Near-side z>0 points project larger under perspective; far-side z<0 project
+ *   Near-side z<0 points project larger under perspective; far-side z>0 project
  *   smaller — you see the characteristic near-big/far-small of a rotating 3D solid.
  */
 export function column(n: number, opts?: ColumnOpts, rng?: Rng): Pt[] {

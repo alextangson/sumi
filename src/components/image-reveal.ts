@@ -40,7 +40,7 @@ export function imageReveal(
   // Tilt is on by default (matches createInkStage default).
   const tiltInput = opts?.tilt;
   const tiltEnabled = tiltInput !== false && (tiltInput as TiltOpts | undefined)?.depth !== false;
-  const amplitude = (tiltInput as TiltOpts | undefined)?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE;
+  const amplitude = DEFAULT_DEPTH_AMPLITUDE;
 
   // Dispersed cloud is the 'from' formation; image sample is the 'to'.
   const rawCloud = dispersed(n, rng);

@@ -21,7 +21,7 @@ export function coherentDepth(x: number, y: number, amplitude: number): number {
   );
 }
 
-import type { Pt, Rng } from '../types';
+import type { Pt } from '../types';
 
 /**
  * Return a new array of points with `z` populated via coherentDepth.
@@ -30,35 +30,6 @@ import type { Pt, Rng } from '../types';
  */
 export function withDepth(pts: Pt[], amplitude: number): Pt[] {
   return pts.map((p) => ({ ...p, z: (p.z ?? 0) + coherentDepth(p.x, p.y, amplitude) }));
-}
-
-/**
- * Return a new array of points where z = coherent surface relief + thickness jitter.
- *
- * This gives each formation real volumetric depth — a slab with front-to-back
- * thickness — so that when the formation rotates in 3D you see a genuine
- * extruded volume rather than a paper-thin sheet.
- *
- * z = coherentDepth(x, y, amplitude) * 0.5   ← surface wave
- *   + (rng() - 0.5) * 2 * thickness          ← random slab offset
- *
- * Default thickness = amplitude (same scale as the surface wave), giving a
- * clearly visible slab depth on rotation. Pass a smaller value to taste.
- *
- * Determinism: the caller passes a seeded `rng`; calling with the same rng
- * state + same pts produces the same z sequence.
- */
-export function withVolume(
-  pts: Pt[],
-  amplitude: number,
-  rng: Rng,
-  thickness?: number,
-): Pt[] {
-  const t = thickness ?? amplitude * 0.6;
-  return pts.map((p) => ({
-    ...p,
-    z: (p.z ?? 0) + coherentDepth(p.x, p.y, amplitude) + (rng() - 0.5) * 2 * t,
-  }));
 }
 
 export type ProjectionResult = { x: number; y: number; scale: number };
@@ -72,7 +43,7 @@ export type ProjectionResult = { x: number; y: number; scale: number };
  *
  * @param x      normalized x [-0.5, 0.5]
  * @param y      normalized y [-0.5, 0.5]
- * @param z      depth (positive = toward viewer)
+ * @param z      depth (negative = toward viewer / nearer; positive = away from viewer / farther)
  * @param yaw    rotation about vertical axis (radians)
  * @param pitch  rotation about horizontal axis (radians)
  * @param focal  focal length (default 1000, in same units as normalized coords

@@ -437,10 +437,8 @@ var Sumi = (() => {
       maxYaw: tiltInput?.maxYaw ?? 0.42,
       maxPitch: tiltInput?.maxPitch ?? 0.16,
       smoothing: tiltInput?.smoothing ?? 0.06,
-      autoDrift: tiltInput?.autoDrift ?? 3e-4,
       staticYaw: tiltInput?.staticYaw ?? 0.12,
-      staticPitch: tiltInput?.staticPitch ?? 0.06,
-      amplitude: tiltInput?.amplitude ?? 0.06
+      staticPitch: tiltInput?.staticPitch ?? 0.06
     };
     let rafId = 0;
     const dpr = Math.min(typeof devicePixelRatio === "number" && devicePixelRatio || 1, 2);
@@ -603,7 +601,6 @@ var Sumi = (() => {
   }
 
   // src/components/text-reveal.ts
-  var DEFAULT_DEPTH_AMPLITUDE = 0.22;
   function dispersed(n, rng) {
     return Array.from({ length: n }, () => ({
       x: rng() - 0.5,
@@ -618,21 +615,16 @@ var Sumi = (() => {
     const rng = createRng(opts.seed ?? 1);
     const palette = createPalette([244, 243, 238], [17, 19, 24], 24);
     const field = createField(n, rng);
-    const tiltInput = opts.tilt;
-    const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
-    const amplitude = tiltInput?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE;
-    const rawCloud = dispersed(n, rng);
-    const cloud = tiltEnabled ? withDepth(rawCloud, amplitude) : rawCloud;
+    const cloud = dispersed(n, rng);
     field.setFormation("dispersed", cloud);
     field.setFormation("text", cloud);
     h1.style.opacity = "0";
     h1.style.transition = "opacity 600ms ease";
     canvas.style.transition = "opacity 600ms ease";
-    const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: tiltInput });
+    const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: false });
     void (async () => {
       await document.fonts.ready;
-      const rawText = fromText(opts.text, n, { font, levels: 24 }, rng);
-      const text = tiltEnabled ? withDepth(rawText, amplitude) : rawText;
+      const text = fromText(opts.text, n, { font, levels: 24 }, rng);
       field.setFormation("text", text);
       stage.morph("dispersed", "text", {
         durationMs: 1600,
@@ -647,7 +639,7 @@ var Sumi = (() => {
   }
 
   // src/components/scene-morph.ts
-  var DEFAULT_DEPTH_AMPLITUDE2 = 0.22;
+  var DEFAULT_DEPTH_AMPLITUDE = 0.22;
   function sceneMorph(canvas, opts) {
     canvas.setAttribute("aria-hidden", "true");
     const n = opts.n ?? opts.from.length;
@@ -655,7 +647,7 @@ var Sumi = (() => {
     const palette = createPalette([244, 243, 238], [17, 19, 24], 24);
     const tiltInput = opts.tilt;
     const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
-    const amplitude = tiltInput?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE2;
+    const amplitude = DEFAULT_DEPTH_AMPLITUDE;
     const field = createField(n, rng);
     field.setFormation("from", tiltEnabled ? withDepth(opts.from, amplitude) : opts.from);
     field.setFormation("to", tiltEnabled ? withDepth(opts.to, amplitude) : opts.to);
@@ -665,7 +657,7 @@ var Sumi = (() => {
   }
 
   // src/components/image-reveal.ts
-  var DEFAULT_DEPTH_AMPLITUDE3 = 0.22;
+  var DEFAULT_DEPTH_AMPLITUDE2 = 0.22;
   function dispersed2(n, rng) {
     return Array.from({ length: n }, () => ({
       x: rng() - 0.5,
@@ -686,7 +678,7 @@ var Sumi = (() => {
     const field = createField(n, rng);
     const tiltInput = opts?.tilt;
     const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
-    const amplitude = tiltInput?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE3;
+    const amplitude = DEFAULT_DEPTH_AMPLITUDE2;
     const rawCloud = dispersed2(n, rng);
     const cloud = tiltEnabled ? withDepth(rawCloud, amplitude) : rawCloud;
     field.setFormation("from", cloud);

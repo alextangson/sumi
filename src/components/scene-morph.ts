@@ -20,7 +20,7 @@ export function sceneMorph(canvas: HTMLCanvasElement, opts: SceneMorphOpts): Ink
   // Tilt is on by default (matches createInkStage default).
   const tiltInput = opts.tilt;
   const tiltEnabled = tiltInput !== false && (tiltInput as TiltOpts | undefined)?.depth !== false;
-  const amplitude = (tiltInput as TiltOpts | undefined)?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE;
+  const amplitude = DEFAULT_DEPTH_AMPLITUDE;
 
   const field = createField(n, rng);
   field.setFormation('from', tiltEnabled ? withDepth(opts.from, amplitude) : opts.from);
