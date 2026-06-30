@@ -22,11 +22,13 @@ var Sumi = (() => {
   var index_exports = {};
   __export(index_exports, {
     autoInit: () => autoInit,
+    column: () => column,
     coverReveal: () => coverReveal,
     createRng: () => createRng,
     easedProgress: () => easedProgress,
     fromImage: () => fromImage,
     fromImageData: () => fromImageData,
+    fromPoints3d: () => fromPoints3d,
     fromSVGPath: () => fromSVGPath,
     fromShape: () => fromShape,
     fromText: () => fromText,
@@ -823,6 +825,65 @@ var Sumi = (() => {
       budget = 2e3;
     }
     return Math.min(budget, 15e3);
+  }
+
+  // src/engine/forms3d.ts
+  function column(n, opts, rng) {
+    const height = opts?.height ?? 0.8;
+    const radius = opts?.radius ?? 0.18;
+    const lvlOpt = opts?.lvl ?? 12;
+    const rand = rng ?? (() => {
+      let s = 2654435769 | 0;
+      return () => {
+        s = Math.imul(s ^ s >>> 16, 73244475) | 0;
+        s = Math.imul(s ^ s >>> 16, 73244475) | 0;
+        return (s >>> 0) / 4294967296;
+      };
+    })();
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const v = (rand() - 0.5) * height;
+      const theta = rand() * Math.PI * 2;
+      const r = radius * Math.sqrt(rand());
+      const x = r * Math.cos(theta);
+      const z = r * Math.sin(theta);
+      const y = v;
+      const lvl = typeof lvlOpt === "function" ? Math.max(0, Math.min(23, Math.round(lvlOpt(v / height)))) : lvlOpt;
+      pts.push({ x, y, lvl, z });
+    }
+    return pts;
+  }
+  function fromPoints3d(pts3d, n, rng) {
+    const out = [];
+    if (pts3d.length === 0) {
+      for (let i = 0; i < n; i++) {
+        out.push({ x: 0, y: 0, lvl: 0, z: 0 });
+      }
+      return out;
+    }
+    const total = pts3d.length;
+    const grain = 0.5 / Math.sqrt(n);
+    let zMin = Infinity, zMax = -Infinity;
+    for (const p of pts3d) {
+      if (p.z < zMin) zMin = p.z;
+      if (p.z > zMax) zMax = p.z;
+    }
+    const zRange = zMax - zMin;
+    const zGrain = Math.min(grain, zRange / Math.max(1, total) * 2);
+    for (let i = 0; i < n; i++) {
+      const pos = (i + rng()) / n * total;
+      const idx = Math.min(total - 1, Math.floor(pos));
+      const src = pts3d[idx];
+      const jx = (rng() - 0.5) * 2 * grain;
+      const jy = (rng() - 0.5) * 2 * grain;
+      const jz = (rng() - 0.5) * 2 * zGrain;
+      const x = Math.min(0.5, Math.max(-0.5, src.x + jx));
+      const y = Math.min(0.5, Math.max(-0.5, src.y + jy));
+      const z = Math.min(zMax + grain, Math.max(zMin - grain, src.z + jz));
+      const lvl = src.lvl ?? 12;
+      out.push({ x, y, lvl, z });
+    }
+    return out;
   }
   return __toCommonJS(index_exports);
 })();

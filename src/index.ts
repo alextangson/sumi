@@ -15,3 +15,5 @@ export type { CoverRevealOpts } from './components/cover-reveal';
 export { statReveal, parseStatValue } from './components/stat-reveal';
 export type { StatRevealOpts, ParsedStatValue } from './components/stat-reveal';
 export { recommendedParticleCount } from './engine/budget';
+export { column, fromPoints3d } from './engine/forms3d';
+export type { ColumnOpts, Pt3D } from './engine/forms3d';
