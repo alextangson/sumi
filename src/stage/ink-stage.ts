@@ -3,7 +3,7 @@ import type { Field } from '../engine/field';
 import type { Palette } from '../engine/palette';
 import { easedProgress, type Phase } from '../engine/choreography';
 export type { Phase };
-import { draw, buildSprites, type ParticleShape } from '../engine/renderer';
+import { draw, buildSprites, type ParticleShape, type ViewParams } from '../engine/renderer';
 import { mapNormalizedToRect } from './map';
 
 export type StageEnv = { reducedMotion: boolean; mobile: boolean; printing: boolean };
@@ -23,6 +23,36 @@ export type InkStage = {
   destroy(): void;
 };
 
+/** 3D tilt / depth options. Pass `{ depth: false }` to disable the volumetric look. */
+export type TiltOpts = {
+  /** Set false to disable 3D tilt entirely (renders flat). Default true. */
+  depth?: boolean;
+  /**
+   * Maximum yaw angle in radians driven by mouse X position.
+   * Default 0.6 rad (~34°).
+   */
+  maxYaw?: number;
+  /**
+   * Maximum pitch angle in radians driven by mouse Y position.
+   * Default 0.3 rad (~17°).
+   */
+  maxPitch?: number;
+  /**
+   * Smoothing factor per frame (0..1). Lower = more lag / smoother.
+   * Default 0.06.
+   */
+  smoothing?: number;
+  /**
+   * Constant auto-yaw drift per frame (radians). Adds life without mouse.
+   * Default 0.0003.
+   */
+  autoDrift?: number;
+  /** Fixed oblique yaw used in static mode (reduced-motion/mobile/print). Default 0.12. */
+  staticYaw?: number;
+  /** Fixed oblique pitch used in static mode. Default 0.06. */
+  staticPitch?: number;
+};
+
 function defaultEnv(): StageEnv {
   const reducedMotion =
     typeof matchMedia === 'function' &&
@@ -35,19 +65,39 @@ export function createInkStage(
   canvas: HTMLCanvasElement,
   field: Field,
   palette: Palette,
-  opts?: { mode?: StageMode; env?: StageEnv; shape?: ParticleShape },
+  opts?: { mode?: StageMode; env?: StageEnv; shape?: ParticleShape; tilt?: TiltOpts | false },
 ): InkStage {
   const mode: StageMode = opts?.mode ?? 'auto';
   const env: StageEnv = opts?.env ?? defaultEnv();
   const shape: ParticleShape = opts?.shape ?? 'round';
+
+  // Tilt is ON by default; pass `tilt: false` or `tilt: { depth: false }` to disable.
+  const tiltInput = opts?.tilt;
+  const tiltEnabled = tiltInput !== false && (tiltInput as TiltOpts | undefined)?.depth !== false;
+  const tiltOpts: Required<TiltOpts> = {
+    depth: true,
+    maxYaw: (tiltInput as TiltOpts | undefined)?.maxYaw ?? 0.6,
+    maxPitch: (tiltInput as TiltOpts | undefined)?.maxPitch ?? 0.3,
+    smoothing: (tiltInput as TiltOpts | undefined)?.smoothing ?? 0.06,
+    autoDrift: (tiltInput as TiltOpts | undefined)?.autoDrift ?? 0.0003,
+    staticYaw: (tiltInput as TiltOpts | undefined)?.staticYaw ?? 0.12,
+    staticPitch: (tiltInput as TiltOpts | undefined)?.staticPitch ?? 0.06,
+  };
 
   let rafId = 0;
   const dpr = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, 2);
   // Build sprite cache once per stage (not per frame)
   const sprites = buildSprites(palette, shape, dpr);
 
+  // 3D view state — smooth tracked angles
+  let currentYaw = 0;
+  let currentPitch = 0;
+  let targetYaw = 0;
+  let targetPitch = 0;
+  // Accumulated auto-drift offset
+  let driftYaw = 0;
+
   // Size the canvas backing store to match its CSS layout size.
-  // Called once at creation and on every window resize.
   function resize(): void {
     const cw = canvas.clientWidth || (typeof innerWidth === 'number' ? innerWidth : 300);
     const ch = canvas.clientHeight || (typeof innerHeight === 'number' ? innerHeight : 150);
@@ -61,13 +111,26 @@ export function createInkStage(
 
   function onResize(): void {
     resize();
-    // Redraw the last settled frame so the resized canvas isn't blank.
     snapshotFor(fullRect());
   }
 
   resize();
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', onResize);
+  }
+
+  // Mouse tracking: derive target yaw/pitch from normalized cursor position.
+  function onMouseMove(e: MouseEvent): void {
+    if (!tiltEnabled) return;
+    const rect = canvas.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width;  // 0..1
+    const ny = (e.clientY - rect.top) / rect.height;   // 0..1
+    targetYaw = (nx - 0.5) * tiltOpts.maxYaw * 2;
+    targetPitch = (ny - 0.5) * tiltOpts.maxPitch * 2;
+  }
+
+  if (tiltEnabled && typeof canvas.addEventListener === 'function') {
+    canvas.addEventListener('mousemove', onMouseMove);
   }
 
   function isStatic(): boolean {
@@ -77,11 +140,24 @@ export function createInkStage(
     );
   }
 
+  /** Build the ViewParams for the current frame, or undefined when tilt is off. */
+  function currentView(overrideYaw?: number, overridePitch?: number): ViewParams | undefined {
+    if (!tiltEnabled) return undefined;
+    return {
+      yaw: overrideYaw ?? currentYaw,
+      pitch: overridePitch ?? currentPitch,
+      focal: 1000,
+    };
+  }
+
   function snapshotFor(rect: Rect): void {
-    // Settle particles at their current target formation and draw a static frame.
-    // Used by beforeprint handlers to render each slide's ink state to its own canvas.
     const ctx = canvas.getContext('2d') as unknown as Parameters<typeof draw>[0] | null;
-    if (ctx) draw(ctx, field, palette, rect, dpr, shape, sprites);
+    if (!ctx) return;
+    // In static mode render at the fixed oblique tilt for volumetric-but-still look.
+    const view = tiltEnabled
+      ? currentView(tiltOpts.staticYaw, tiltOpts.staticPitch)
+      : undefined;
+    draw(ctx, field, palette, rect, dpr, shape, sprites, view);
   }
 
   function fullRect(): Rect {
@@ -101,7 +177,13 @@ export function createInkStage(
 
     if (isStatic()) {
       field.step({ from, to, m: 1, stagger });
-      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites);
+      if (ctx) {
+        // Static: render one settled frame at fixed oblique tilt.
+        const view = tiltEnabled
+          ? currentView(tiltOpts.staticYaw, tiltOpts.staticPitch)
+          : undefined;
+        draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites, view);
+      }
       opts?.onSettle?.();
       return;
     }
@@ -118,7 +200,15 @@ export function createInkStage(
       const rawM = easedProgress((time - start) / durationMs, opts?.phases, opts?.ease);
       const m = (time - start) >= durationMs ? 1 : rawM;
       field.step({ from, to, m, stagger });
-      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites);
+
+      // Smooth tilt angles toward target each frame
+      if (tiltEnabled) {
+        driftYaw += tiltOpts.autoDrift;
+        currentYaw += (targetYaw + driftYaw - currentYaw) * tiltOpts.smoothing;
+        currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
+      }
+
+      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites, currentView());
       if (m >= 1) {
         rafId = 0;
         opts?.onSettle?.();
@@ -137,6 +227,9 @@ export function createInkStage(
     }
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', onResize);
+    }
+    if (tiltEnabled && typeof canvas.removeEventListener === 'function') {
+      canvas.removeEventListener('mousemove', onMouseMove);
     }
   }
 

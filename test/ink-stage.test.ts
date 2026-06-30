@@ -120,7 +120,7 @@ describe('createInkStage().morph() animate path', () => {
   it('animate path with custom ease terminates and fires onSettle (FIX 2 guard)', async () => {
     const n = 3;
     const pts = Array.from({ length: n }, (_, i) => ({ x: i / n - 0.5, y: 0, lvl: i }));
-    const particles = pts.map((p) => ({ targets: {} as Record<string, { x: number; y: number; lvl: number }>, x: p.x, y: p.y, phase: 0, lvl: p.lvl }));
+    const particles = pts.map((p) => ({ targets: {} as Record<string, { x: number; y: number; lvl: number }>, x: p.x, y: p.y, z: 0, phase: 0, lvl: p.lvl }));
     const field = {
       particles,
       n,
@@ -190,7 +190,7 @@ describe('createInkStage() reduced-motion / mobile static fallback', () => {
     const pts: Pt[] = [{ x: -0.25, y: 0, lvl: 0 }, { x: 0.25, y: 0, lvl: 1 }];
     const particles = pts.map(p => ({
       targets: {} as Record<string, Pt>,
-      x: p.x, y: p.y, phase: 0, lvl: p.lvl,
+      x: p.x, y: p.y, z: 0, phase: 0, lvl: p.lvl,
     }));
     const field = {
       particles, n,
@@ -232,7 +232,7 @@ describe('createInkStage().morph() static mode', () => {
     const pts: Pt[] = Array.from({ length: n }, (_, i) => ({ x: i / n - 0.5, y: 0, lvl: i }));
 
     // Build a real-ish field with two formations so field.step can run.
-    const particles = pts.map((p) => ({ targets: {} as Record<string, Pt>, x: p.x, y: p.y, phase: 0, lvl: p.lvl }));
+    const particles = pts.map((p) => ({ targets: {} as Record<string, Pt>, x: p.x, y: p.y, z: 0, phase: 0, lvl: p.lvl }));
     const field = {
       particles,
       n,

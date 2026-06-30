@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { bucketize, draw, type Ctx2D, type ParticleShape } from '../src/engine/renderer';
+import { bucketize, draw, type Ctx2D, type ParticleShape, type ViewParams } from '../src/engine/renderer';
 import type { Particle, Field } from '../src/engine/field';
 import type { Palette } from '../src/engine/palette';
 import type { Rect } from '../src/types';
@@ -35,7 +35,7 @@ function makeRecordingCtx() {
 }
 
 function makeParticle(x: number, y: number, lvl: number): Particle {
-  return { targets: {}, x, y, phase: 0, lvl };
+  return { targets: {}, x, y, z: 0, phase: 0, lvl };
 }
 
 // 3 particles across 2 levels (lvl 0 and lvl 1), intentionally unsorted.
@@ -185,5 +185,74 @@ describe('draw', () => {
       expect(dx).toBeCloseTo(50 - halfSize);
       expect(dy).toBeCloseTo(50 - halfSize);
     });
+  });
+});
+
+function makeParticleWithZ(x: number, y: number, z: number, lvl: number): Particle {
+  return { targets: {}, x, y, z, phase: 0, lvl };
+}
+
+describe('draw with view (3D perspective)', () => {
+  const palette: Palette = {
+    colors: ['#111317', '#aaaaaa'],
+    sizes: [2, 4],
+    levels: 2,
+  };
+  const rect: Rect = { x: 0, y: 0, w: 100, h: 100 };
+  const view: ViewParams = { yaw: 0.3, pitch: 0.1, focal: 1000 };
+
+  function makeField3D(): Field {
+    const particles: Particle[] = [
+      makeParticleWithZ(0.1, 0.1, 0.05, 1),
+      makeParticleWithZ(-0.2, 0.2, -0.03, 0),
+      makeParticleWithZ(0.3, -0.3, 0.1, 1),
+    ];
+    return { particles, n: 3, setFormation() {}, step() {} };
+  }
+
+  it('draw with view does not throw and still draws n particles', () => {
+    const { ctx, fillRectLog } = makeRecordingCtx();
+    const field = makeField3D();
+    expect(() => draw(ctx, field, palette, rect, 1, 'square', [], view)).not.toThrow();
+    expect(fillRectLog.length).toBe(field.n);
+  });
+
+  it('draw with view=undefined is identical to no-view flat path', () => {
+    const { ctx: ctx1, fillRectLog: log1 } = makeRecordingCtx();
+    const { ctx: ctx2, fillRectLog: log2 } = makeRecordingCtx();
+    const field = makeField3D();
+    draw(ctx1, field, palette, rect, 1, 'square', []);
+    draw(ctx2, field, palette, rect, 1, 'square', [], undefined);
+    expect(log1).toEqual(log2);
+  });
+
+  it('yaw=0 pitch=0 view produces same positions as flat path for z=0 particles', () => {
+    const zeroZField: Field = {
+      particles: [makeParticleWithZ(0.1, 0.1, 0, 0)],
+      n: 1,
+      setFormation() {},
+      step() {},
+    };
+    const { ctx: flatCtx, fillRectLog: flatLog } = makeRecordingCtx();
+    const { ctx: viewCtx, fillRectLog: viewLog } = makeRecordingCtx();
+    draw(flatCtx, zeroZField, palette, rect, 1, 'square', []);
+    draw(viewCtx, zeroZField, palette, rect, 1, 'square', [], { yaw: 0, pitch: 0, focal: 1000 });
+    expect(viewLog[0][0]).toBeCloseTo(flatLog[0][0], 3);
+    expect(viewLog[0][1]).toBeCloseTo(flatLog[0][1], 3);
+  });
+
+  it('view with yaw shifts particle x position', () => {
+    const field: Field = {
+      particles: [makeParticleWithZ(0, 0, 0.1, 0)],
+      n: 1,
+      setFormation() {},
+      step() {},
+    };
+    const { ctx: flatCtx, fillRectLog: flatLog } = makeRecordingCtx();
+    const { ctx: viewCtx, fillRectLog: viewLog } = makeRecordingCtx();
+    draw(flatCtx, field, palette, rect, 1, 'square', []);
+    draw(viewCtx, field, palette, rect, 1, 'square', [], { yaw: 0.5, pitch: 0, focal: 1000 });
+    // With z=0.1 and yaw=0.5, x should shift from center
+    expect(viewLog[0][0]).not.toBeCloseTo(flatLog[0][0], 0);
   });
 });

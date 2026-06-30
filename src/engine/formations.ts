@@ -34,17 +34,40 @@ export function fromText(
   opts: { font: string; levels: number },
   rng: Rng,
 ): Pt[] {
+  // Use a square canvas so samplePixelBuffer's equal x/width and y/height
+  // divisors map correctly onto the square coordinate space used by the renderer.
+  // A 1024×256 canvas would compress y by 4× relative to x.
+  const size = 1024;
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 256;
+  canvas.width = size;
+  canvas.height = size;
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#f4f3ee';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, size, size);
+
+  // Measure text at the caller-supplied font size, then scale to contain-fit
+  // within 80% of the square canvas, preserving aspect ratio exactly.
   ctx.font = opts.font;
+  const metrics = ctx.measureText(text);
+  const textW = metrics.width;
+  const textH = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+  const target = size * 0.8;
+  const scale = textW > 0 && textH > 0
+    ? Math.min(target / textW, target / textH)
+    : 1;
+
+  // Extract the numeric font size and rebuild the font string at scaled size.
+  const match = opts.font.match(/(\d+(?:\.\d+)?)(px|pt|em|rem)/);
+  if (match) {
+    const origSize = parseFloat(match[1]);
+    const unit = match[2];
+    ctx.font = opts.font.replace(match[0], `${origSize * scale}${unit}`);
+  }
+
+  ctx.fillStyle = '#000';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  ctx.fillText(text, size / 2, size / 2);
   const buf = canvasToPixelBuffer(canvas, ctx);
   const sampleOpts: SampleOpts = { levels: opts.levels };
   return fromImageData(buf, n, sampleOpts, rng);

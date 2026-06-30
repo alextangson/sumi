@@ -16,6 +16,7 @@ function makeFakeField() {
     targets: {} as Record<string, Pt>,
     x: p.x,
     y: p.y,
+    z: 0,
     phase: 0,
     lvl: p.lvl,
   }));

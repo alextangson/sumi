@@ -5,6 +5,7 @@ export type Particle = {
   targets: Record<string, Pt>;
   x: number;
   y: number;
+  z: number;
   phase: number;
   lvl: number;
 };
@@ -21,6 +22,7 @@ export function createField(n: number, rng: Rng): Field {
     targets: {},
     x: 0,
     y: 0,
+    z: 0,
     phase: rng() * 2 * Math.PI,
     lvl: 0,
   }));

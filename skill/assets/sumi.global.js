@@ -147,17 +147,29 @@ var Sumi = (() => {
     return { data: img.data, width: img.width, height: img.height };
   }
   function fromText(text, n, opts, rng) {
+    const size = 1024;
     const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 256;
+    canvas.width = size;
+    canvas.height = size;
     const ctx = canvas.getContext("2d");
     ctx.fillStyle = "#f4f3ee";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, size, size);
     ctx.font = opts.font;
+    const metrics = ctx.measureText(text);
+    const textW = metrics.width;
+    const textH = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+    const target = size * 0.8;
+    const scale = textW > 0 && textH > 0 ? Math.min(target / textW, target / textH) : 1;
+    const match = opts.font.match(/(\d+(?:\.\d+)?)(px|pt|em|rem)/);
+    if (match) {
+      const origSize = parseFloat(match[1]);
+      const unit = match[2];
+      ctx.font = opts.font.replace(match[0], `${origSize * scale}${unit}`);
+    }
+    ctx.fillStyle = "#000";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    ctx.fillText(text, size / 2, size / 2);
     const buf = canvasToPixelBuffer(canvas, ctx);
     const sampleOpts = { levels: opts.levels };
     return fromImageData(buf, n, sampleOpts, rng);
@@ -254,6 +266,7 @@ var Sumi = (() => {
       targets: {},
       x: 0,
       y: 0,
+      z: 0,
       phase: rng() * 2 * Math.PI,
       lvl: 0
     }));
@@ -299,6 +312,27 @@ var Sumi = (() => {
     };
   }
 
+  // src/engine/depth.ts
+  function project3d(x, y, z, yaw, pitch, focal, pivotX = 0, pivotY = 0) {
+    const cy = Math.cos(yaw);
+    const sy = Math.sin(yaw);
+    const cp = Math.cos(pitch);
+    const sp = Math.sin(pitch);
+    const ex = x - pivotX;
+    const Yv = y - pivotY;
+    const X1 = ex * cy + z * sy;
+    const Z1 = -ex * sy + z * cy;
+    const Yr = Yv * cp - Z1 * sp;
+    const Z2 = Yv * sp + Z1 * cp;
+    const persp = focal / (focal + Z2);
+    const scale = Math.max(0.72, Math.min(1.45, persp));
+    return {
+      x: pivotX + X1 * persp,
+      y: pivotY + Yr * persp,
+      scale
+    };
+  }
+
   // src/engine/renderer.ts
   function buildSprites(palette, shape, dpr) {
     if (typeof document === "undefined") return [];
@@ -335,7 +369,19 @@ var Sumi = (() => {
   function bucketize(particles) {
     return particles.slice().sort((a, b) => a.lvl - b.lvl);
   }
-  function draw(ctx, field, palette, rect, dpr, shape = "square", sprites = []) {
+  function resolvePosition(p, rect, view) {
+    if (view) {
+      const focal = view.focal ?? 1e3;
+      const pivotX = view.pivotX ?? 0;
+      const pivotY = view.pivotY ?? 0;
+      const proj = project3d(p.x, p.y, p.z, view.yaw, view.pitch, focal, pivotX, pivotY);
+      const mapped2 = mapNormalizedToRect(proj, rect);
+      return { x: mapped2.x, y: mapped2.y, sizeMul: proj.scale };
+    }
+    const mapped = mapNormalizedToRect(p, rect);
+    return { x: mapped.x, y: mapped.y, sizeMul: 1 };
+  }
+  function draw(ctx, field, palette, rect, dpr, shape = "square", sprites = [], view) {
     ctx.clearRect(rect.x * dpr, rect.y * dpr, rect.w * dpr, rect.h * dpr);
     const sorted = bucketize(field.particles);
     if (shape === "square" || sprites.length === 0) {
@@ -345,16 +391,16 @@ var Sumi = (() => {
           cur = p.lvl;
           ctx.fillStyle = palette.colors[cur];
         }
-        const { x, y } = mapNormalizedToRect(p, rect);
-        const size = palette.sizes[cur];
+        const { x, y, sizeMul } = resolvePosition(p, rect, view);
+        const size = palette.sizes[cur] * sizeMul;
         ctx.fillRect(x * dpr, y * dpr, size * dpr, size * dpr);
       }
     } else {
       for (const p of sorted) {
         const sprite = sprites[p.lvl];
         if (!sprite) continue;
-        const { x, y } = mapNormalizedToRect(p, rect);
-        const halfSize = sprite.width * 0.5;
+        const { x, y, sizeMul } = resolvePosition(p, rect, view);
+        const halfSize = sprite.width * 0.5 * sizeMul;
         ctx.drawImage(sprite, x * dpr - halfSize, y * dpr - halfSize);
       }
     }
@@ -370,9 +416,25 @@ var Sumi = (() => {
     const mode = opts?.mode ?? "auto";
     const env = opts?.env ?? defaultEnv();
     const shape = opts?.shape ?? "round";
+    const tiltInput = opts?.tilt;
+    const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
+    const tiltOpts = {
+      depth: true,
+      maxYaw: tiltInput?.maxYaw ?? 0.6,
+      maxPitch: tiltInput?.maxPitch ?? 0.3,
+      smoothing: tiltInput?.smoothing ?? 0.06,
+      autoDrift: tiltInput?.autoDrift ?? 3e-4,
+      staticYaw: tiltInput?.staticYaw ?? 0.12,
+      staticPitch: tiltInput?.staticPitch ?? 0.06
+    };
     let rafId = 0;
     const dpr = Math.min(typeof devicePixelRatio === "number" && devicePixelRatio || 1, 2);
     const sprites = buildSprites(palette, shape, dpr);
+    let currentYaw = 0;
+    let currentPitch = 0;
+    let targetYaw = 0;
+    let targetPitch = 0;
+    let driftYaw = 0;
     function resize() {
       const cw = canvas.clientWidth || (typeof innerWidth === "number" ? innerWidth : 300);
       const ch = canvas.clientHeight || (typeof innerHeight === "number" ? innerHeight : 150);
@@ -391,12 +453,33 @@ var Sumi = (() => {
     if (typeof window !== "undefined") {
       window.addEventListener("resize", onResize);
     }
+    function onMouseMove(e) {
+      if (!tiltEnabled) return;
+      const rect = canvas.getBoundingClientRect();
+      const nx = (e.clientX - rect.left) / rect.width;
+      const ny = (e.clientY - rect.top) / rect.height;
+      targetYaw = (nx - 0.5) * tiltOpts.maxYaw * 2;
+      targetPitch = (ny - 0.5) * tiltOpts.maxPitch * 2;
+    }
+    if (tiltEnabled && typeof canvas.addEventListener === "function") {
+      canvas.addEventListener("mousemove", onMouseMove);
+    }
     function isStatic() {
       return mode === "static" || mode !== "animate" && (env.reducedMotion || env.mobile || env.printing);
     }
+    function currentView(overrideYaw, overridePitch) {
+      if (!tiltEnabled) return void 0;
+      return {
+        yaw: overrideYaw ?? currentYaw,
+        pitch: overridePitch ?? currentPitch,
+        focal: 1e3
+      };
+    }
     function snapshotFor(rect) {
       const ctx = canvas.getContext("2d");
-      if (ctx) draw(ctx, field, palette, rect, dpr, shape, sprites);
+      if (!ctx) return;
+      const view = tiltEnabled ? currentView(tiltOpts.staticYaw, tiltOpts.staticPitch) : void 0;
+      draw(ctx, field, palette, rect, dpr, shape, sprites, view);
     }
     function fullRect() {
       return {
@@ -413,7 +496,10 @@ var Sumi = (() => {
       const ctx = canvas.getContext("2d");
       if (isStatic()) {
         field.step({ from, to, m: 1, stagger });
-        if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites);
+        if (ctx) {
+          const view = tiltEnabled ? currentView(tiltOpts.staticYaw, tiltOpts.staticPitch) : void 0;
+          draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites, view);
+        }
         opts2?.onSettle?.();
         return;
       }
@@ -427,7 +513,12 @@ var Sumi = (() => {
         const rawM = easedProgress((time - start) / durationMs, opts2?.phases, opts2?.ease);
         const m = time - start >= durationMs ? 1 : rawM;
         field.step({ from, to, m, stagger });
-        if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites);
+        if (tiltEnabled) {
+          driftYaw += tiltOpts.autoDrift;
+          currentYaw += (targetYaw + driftYaw - currentYaw) * tiltOpts.smoothing;
+          currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
+        }
+        if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites, currentView());
         if (m >= 1) {
           rafId = 0;
           opts2?.onSettle?.();
@@ -444,6 +535,9 @@ var Sumi = (() => {
       }
       if (typeof window !== "undefined") {
         window.removeEventListener("resize", onResize);
+      }
+      if (tiltEnabled && typeof canvas.removeEventListener === "function") {
+        canvas.removeEventListener("mousemove", onMouseMove);
       }
     }
     return { isStatic, snapshotFor, morph, destroy };
