@@ -2,7 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import { fromImageData, fromImage } from '../src/engine/formations';
 import { createRng } from '../src/engine/rng';
-import type { PixelBuffer, SampleOpts } from '../src/types';
+import type { PixelBuffer } from '../src/types';
+import type { SampleOpts } from '../src/engine/sample';
 
 // Build a WxH RGBA buffer; `inkRows` top rows are black ink, rest is paper bg.
 function makeBuffer(w: number, h: number, inkRows: number): PixelBuffer {
