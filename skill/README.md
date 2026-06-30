@@ -39,8 +39,9 @@ Pass the agent the URL to this `SKILL.md`:
 https://github.com/<owner>/inkmote/blob/main/skill/SKILL.md
 ```
 
-The agent reads the skill description and body, then inlines
-`skill/assets/inkmote.global.js` into the generated deck.
+The agent reads the skill description and body, then inlines the IIFE from the
+locally-resolved `${CLAUDE_SKILL_DIR}/assets/inkmote.global.js` (cloned path)
+into the generated deck. No HTTP fetch — the asset is read from disk.
 
 ## Usage
 
