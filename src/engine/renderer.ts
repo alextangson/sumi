@@ -21,7 +21,7 @@ export type Ctx2D = {
   fillStyle: string;
   clearRect(x: number, y: number, w: number, h: number): void;
   fillRect(x: number, y: number, w: number, h: number): void;
-  drawImage(image: HTMLCanvasElement, dx: number, dy: number): void;
+  drawImage(image: HTMLCanvasElement, dx: number, dy: number, dWidth: number, dHeight: number): void;
 };
 
 /**
@@ -121,11 +121,18 @@ export function draw(
   } else {
     // Sprite path: drawImage the pre-rendered offscreen canvas per particle.
     for (const p of sorted) {
-      const sprite = sprites[p.lvl];
-      if (!sprite) continue;
       const { x, y, sizeMul } = resolvePosition(p, rect, view);
-      const halfSize = sprite.width * 0.5 * sizeMul;
-      ctx.drawImage(sprite, x * dpr - halfSize, y * dpr - halfSize);
+      // Depth shading: near (sizeMul>1) → darker level, far (sizeMul<1) → fainter.
+      // Only applied when view is present (3D mode); flat mode uses p.lvl unchanged.
+      let eLvl = p.lvl;
+      if (view !== undefined) {
+        const shade = Math.round((sizeMul - 1) * 0.7 * palette.levels);
+        eLvl = Math.max(0, Math.min(palette.levels - 1, p.lvl + shade));
+      }
+      const sprite = sprites[eLvl] ?? sprites[p.lvl];
+      if (!sprite) continue;
+      const w = sprite.width * sizeMul;
+      ctx.drawImage(sprite, x * dpr - w / 2, y * dpr - w / 2, w, w);
     }
   }
 }

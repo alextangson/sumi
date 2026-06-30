@@ -39,7 +39,7 @@ export type ColumnOpts = {
 export function column(n: number, opts?: ColumnOpts, rng?: Rng): Pt[] {
   const height = opts?.height ?? 0.8;
   const radius = opts?.radius ?? 0.18;
-  const lvlOpt = opts?.lvl ?? 12;
+  const lvlOpt = opts?.lvl ?? 16;
 
   // Fallback rng: seeded lcg (deterministic, no external state)
   const rand: Rng = rng ?? (() => {

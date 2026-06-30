@@ -320,7 +320,7 @@ var Sumi = (() => {
     return amplitude * (Math.sin(x * 7.5 + y * 2.5) * 0.55 + Math.sin(x * 3 - y * 6.5 + 1.3) * 0.35 + Math.sin(y * 12 + x * 1.5) * 0.22);
   }
   function withDepth(pts, amplitude) {
-    return pts.map((p) => ({ ...p, z: coherentDepth(p.x, p.y, amplitude) }));
+    return pts.map((p) => ({ ...p, z: (p.z ?? 0) + coherentDepth(p.x, p.y, amplitude) }));
   }
   function project3d(x, y, z, yaw, pitch, focal, pivotX = 0, pivotY = 0) {
     const cy = Math.cos(yaw);
@@ -406,11 +406,16 @@ var Sumi = (() => {
       }
     } else {
       for (const p of sorted) {
-        const sprite = sprites[p.lvl];
-        if (!sprite) continue;
         const { x, y, sizeMul } = resolvePosition(p, rect, view);
-        const halfSize = sprite.width * 0.5 * sizeMul;
-        ctx.drawImage(sprite, x * dpr - halfSize, y * dpr - halfSize);
+        let eLvl = p.lvl;
+        if (view !== void 0) {
+          const shade = Math.round((sizeMul - 1) * 0.7 * palette.levels);
+          eLvl = Math.max(0, Math.min(palette.levels - 1, p.lvl + shade));
+        }
+        const sprite = sprites[eLvl] ?? sprites[p.lvl];
+        if (!sprite) continue;
+        const w = sprite.width * sizeMul;
+        ctx.drawImage(sprite, x * dpr - w / 2, y * dpr - w / 2, w, w);
       }
     }
   }
@@ -831,7 +836,7 @@ var Sumi = (() => {
   function column(n, opts, rng) {
     const height = opts?.height ?? 0.8;
     const radius = opts?.radius ?? 0.18;
-    const lvlOpt = opts?.lvl ?? 12;
+    const lvlOpt = opts?.lvl ?? 16;
     const rand = rng ?? (() => {
       let s = 2654435769 | 0;
       return () => {

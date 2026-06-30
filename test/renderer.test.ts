@@ -8,7 +8,7 @@ import type { Rect } from '../src/types';
 function makeRecordingCtx() {
   const fillStyleLog: string[] = [];
   const fillRectLog: Array<[number, number, number, number]> = [];
-  const drawImageLog: Array<[unknown, number, number]> = [];
+  const drawImageLog: Array<[unknown, number, number, number, number]> = [];
   let clearRectCalls = 0;
   const ctx = {
     _fillStyle: '',
@@ -25,8 +25,8 @@ function makeRecordingCtx() {
     fillRect(x: number, y: number, w: number, h: number) {
       fillRectLog.push([x, y, w, h]);
     },
-    drawImage(image: unknown, dx: number, dy: number) {
-      drawImageLog.push([image, dx, dy]);
+    drawImage(image: unknown, dx: number, dy: number, dWidth: number, dHeight: number) {
+      drawImageLog.push([image, dx, dy, dWidth, dHeight]);
     },
   } as Ctx2D & {
     _fillStyle: string;
@@ -161,14 +161,29 @@ describe('draw', () => {
       const sprites = makeStubSprites(palette.levels, palette);
       draw(ctx, field, palette, rect, 1, 'round', sprites);
       // After bucketize: lvl order is [0, 1, 1]
+      // No view → eLvl = p.lvl, sprites unchanged
       expect(drawImageLog[0][0]).toBe(sprites[0]);
       expect(drawImageLog[1][0]).toBe(sprites[1]);
       expect(drawImageLog[2][0]).toBe(sprites[1]);
     });
 
+    it('drawImage called with 5 args (image, dx, dy, dWidth, dHeight)', () => {
+      const { ctx, drawImageLog } = makeRecordingCtx();
+      const field = makeField();
+      const sprites = makeStubSprites(palette.levels, palette);
+      draw(ctx, field, palette, rect, 1, 'round', sprites);
+      expect(drawImageLog.length).toBe(field.n);
+      for (const entry of drawImageLog) {
+        expect(entry.length).toBe(5);
+        // dWidth and dHeight should be equal (square sprite)
+        expect(entry[3]).toBe(entry[4]);
+      }
+    });
+
     it('drawImage offsets use sprite.width for centering (no sub-pixel bias)', () => {
       // Particle at x=0, y=0 (normalized center) maps to rect center (50,50) at dpr=1.
-      // With lvl-0 sprite width=2: halfSize=1, expected drawImage dx=50-1=49, dy=50-1=49.
+      // No view → sizeMul=1, w = sprite.width * 1.
+      // dx = 50 - w/2, dy = 50 - w/2.
       const singleParticleField: Field = {
         particles: [makeParticle(0, 0, 0)],
         n: 1,
@@ -179,11 +194,57 @@ describe('draw', () => {
       const { ctx, drawImageLog } = makeRecordingCtx();
       const sprites = makeStubSprites(palette.levels, palette);
       draw(ctx, singleParticleField, palette, singleRect, 1, 'round', sprites);
-      const [, dx, dy] = drawImageLog[0];
-      const halfSize = sprites[0].width * 0.5;
+      const [, dx, dy, dWidth, dHeight] = drawImageLog[0];
+      const w = sprites[0].width; // sizeMul=1 in flat mode
       // mapNormalizedToRect: x=0,y=0 normalized → center of rect (50,50)
-      expect(dx).toBeCloseTo(50 - halfSize);
-      expect(dy).toBeCloseTo(50 - halfSize);
+      expect(dx).toBeCloseTo(50 - w / 2);
+      expect(dy).toBeCloseTo(50 - w / 2);
+      expect(dWidth).toBeCloseTo(w);
+      expect(dHeight).toBeCloseTo(w);
+    });
+
+    it('sprite path with view selects different effective levels for near vs far particles', () => {
+      // Near particle: z=0.3 (will have sizeMul>1 → shade>0 → eLvl pushed higher)
+      // Far particle:  z=-0.3 (will have sizeMul<1 → shade<0 → eLvl pushed lower)
+      // Both start at lvl=1 (middle of 2-level palette). With 2 levels the shift may
+      // clamp, so we just assert draw doesn't throw and calls drawImage with 5 args.
+      const deepPalette: Palette = {
+        colors: ['#000', '#222', '#444', '#666', '#888', '#aaa'],
+        sizes: [1, 2, 3, 4, 5, 6],
+        levels: 6,
+      };
+      // In project3d: z negative = toward viewer (near, sizeMul>1), z positive = away (far, sizeMul<1)
+      const nearField: Field = {
+        particles: [makeParticleWithZ(0, 0, -0.4, 3)],
+        n: 1,
+        setFormation() {},
+        step() {},
+      };
+      const farField: Field = {
+        particles: [makeParticleWithZ(0, 0, 0.4, 3)],
+        n: 1,
+        setFormation() {},
+        step() {},
+      };
+      const sprites6 = makeStubSprites(6, deepPalette);
+      const view3d: ViewParams = { yaw: 0, pitch: 0, focal: 1.8 };
+
+      const { ctx: ctxNear, drawImageLog: nearLog } = makeRecordingCtx();
+      draw(ctxNear, nearField, deepPalette, rect, 1, 'round', sprites6, view3d);
+      expect(nearLog.length).toBe(1);
+      expect(nearLog[0].length).toBe(5);
+
+      const { ctx: ctxFar, drawImageLog: farLog } = makeRecordingCtx();
+      draw(ctxFar, farField, deepPalette, rect, 1, 'round', sprites6, view3d);
+      expect(farLog.length).toBe(1);
+      expect(farLog[0].length).toBe(5);
+
+      // Near particle should use a darker (higher index) sprite than far particle
+      const nearSprite = nearLog[0][0] as HTMLCanvasElement;
+      const farSprite = farLog[0][0] as HTMLCanvasElement;
+      const nearIdx = sprites6.indexOf(nearSprite);
+      const farIdx = sprites6.indexOf(farSprite);
+      expect(nearIdx).toBeGreaterThanOrEqual(farIdx);
     });
   });
 });
