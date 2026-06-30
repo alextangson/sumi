@@ -18,8 +18,10 @@
  *
  * const handle = injectInkBackground(document.querySelector('.reveal'), {
  *   kind: 'scene',
- *   from: fromText('OPEN', 6000),
- *   to:   fromText('CLOSE', 6000),
+ *   opts: {
+ *     from: fromText('OPEN', 6000),
+ *     to:   fromText('CLOSE', 6000),
+ *   },
  * })
  *
  * // On teardown:

@@ -53,6 +53,7 @@ const INK_N = 6000
 // ---------------------------------------------------------------------------
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 let stage: InkStage | null = null
+let h1El: HTMLElement | null = null
 
 // Slidev exposes the current slide's frontmatter via useSlideContext (optional).
 // Wrap in try/catch — this file may be used outside Slidev (e.g. plain Vite).
@@ -76,16 +77,18 @@ onMounted(() => {
   const n = typeof ink['n'] === 'number' ? ink['n'] : INK_N
 
   // Create a hidden h1 sibling for the textReveal handoff.
-  const h1 = document.createElement('h1')
-  h1.textContent = text
-  h1.style.cssText = 'position:absolute;opacity:0;pointer-events:none;'
-  canvas.parentElement?.appendChild(h1)
+  h1El = document.createElement('h1')
+  h1El.textContent = text
+  h1El.style.cssText = 'position:absolute;opacity:0;pointer-events:none;'
+  canvas.parentElement?.appendChild(h1El)
 
-  stage = textReveal(canvas, h1, { text, shape, seed, n })
+  stage = textReveal(canvas, h1El, { text, shape, seed, n })
 })
 
 onBeforeUnmount(() => {
   stage?.destroy()
+  h1El?.remove()
+  h1El = null
   stage = null
 })
 </script>
