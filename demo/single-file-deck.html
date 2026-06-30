@@ -108,20 +108,20 @@
 
     <main class="deck">
       <!-- Slide 0: cover — h1 forms via textReveal -->
-      <section class="slide active" id="slide-cover" data-scene="cover">
+      <section class="slide active" id="slide-cover">
         <h1 data-ink="title">Ink in Motion</h1>
         <canvas class="print-frame" aria-hidden="true"></canvas>
       </section>
 
       <!-- Slide 1: section transition — sceneMorph between cover dust and stat dust -->
-      <section class="slide" id="slide-transition" data-scene="transition">
+      <section class="slide" id="slide-transition">
         <h1 data-ink="title">From idea to impact</h1>
         <p class="caption">A field of particles morphs between scenes.</p>
         <canvas class="print-frame" aria-hidden="true"></canvas>
       </section>
 
       <!-- Slide 2: body — big stat -->
-      <section class="slide" id="slide-stat" data-scene="stat">
+      <section class="slide" id="slide-stat">
         <div data-ink="stat" data-value="95%">95%</div>
         <p class="caption">of the bundle is core engine, not chrome.</p>
         <canvas class="print-frame" aria-hidden="true"></canvas>
@@ -190,7 +190,8 @@
           slides.forEach(function (s, k) {
             s.classList.toggle("active", k === idx);
           });
-          stages[idx].goto(slides[idx].dataset.scene);
+          // Navigation is driven entirely by the CSS .active class toggling
+          // visibility/opacity — no stage call needed here.
         }
 
         window.addEventListener("keydown", function (e) {
@@ -203,8 +204,9 @@
           }
         });
 
-        // Export safe (spec §8): on print, switch every stage to static and render
-        // each slide region's OWN frame — never the shared live canvas.
+        // On print, snapshot each stage's current settled frame.
+        // NOTE: print renders native DOM text only — the shared #ink canvas is
+        // display:none in @media print. Per-slide static ink frames are a P1 item.
         window.addEventListener("beforeprint", function () {
           var rect = fullBleedRect();
           stages.forEach(function (st) {

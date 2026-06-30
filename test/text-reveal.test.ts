@@ -49,15 +49,15 @@ describe('textReveal', () => {
     expect(found?.textContent).toBe('Stello');
   });
 
-  it('returns an InkStage with scene/goto/next', () => {
+  it('returns an InkStage with morph/isStatic/destroy', () => {
     const canvas = document.createElement('canvas');
     const h1 = document.createElement('h1');
     h1.textContent = 'Stello';
     document.body.appendChild(h1);
     const stage = textReveal(canvas, h1, { text: 'Stello', n: 16 });
-    expect(typeof stage.scene).toBe('function');
-    expect(typeof stage.goto).toBe('function');
-    expect(typeof stage.next).toBe('function');
+    expect(typeof stage.morph).toBe('function');
+    expect(typeof stage.isStatic).toBe('function');
+    expect(typeof stage.destroy).toBe('function');
   });
 
   it('h1 starts at opacity "0" and canvas has a CSS transition set', () => {

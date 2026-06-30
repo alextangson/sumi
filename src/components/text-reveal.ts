@@ -36,10 +36,6 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
   canvas.style.transition = 'opacity 600ms ease';
 
   const stage = createInkStage(canvas, field, palette);
-  stage.scene('reveal', {
-    formation: 'text',
-    choreography: [{ until: 1 }],
-  });
 
   void (async () => {
     await document.fonts.ready;

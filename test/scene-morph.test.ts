@@ -15,12 +15,12 @@ const to: Pt[] = [
 ];
 
 describe('sceneMorph', () => {
-  it('returns an InkStage with scene/goto/next', () => {
+  it('returns an InkStage with morph/isStatic/destroy', () => {
     const canvas = document.createElement('canvas');
     const stage = sceneMorph(canvas, { from, to, n: 3, seed: 1 });
-    expect(typeof stage.scene).toBe('function');
-    expect(typeof stage.goto).toBe('function');
-    expect(typeof stage.next).toBe('function');
+    expect(typeof stage.morph).toBe('function');
+    expect(typeof stage.isStatic).toBe('function');
+    expect(typeof stage.destroy).toBe('function');
   });
 
   it('sets canvas aria-hidden to "true"', () => {

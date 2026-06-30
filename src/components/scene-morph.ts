@@ -18,10 +18,6 @@ export function sceneMorph(canvas: HTMLCanvasElement, opts: SceneMorphOpts): Ink
   field.setFormation('to', opts.to);
 
   const stage = createInkStage(canvas, field, palette);
-  stage.scene('morph', {
-    formation: 'to',
-    choreography: [{ until: 1 }],
-  });
   stage.morph('from', 'to', { durationMs: 1600 });
 
   return stage;

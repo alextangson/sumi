@@ -1,19 +1,14 @@
 import type { Rect } from '../types';
 import type { Field } from '../engine/field';
 import type { Palette } from '../engine/palette';
-import type { Phase } from '../engine/choreography';
 import { easeInOut } from '../engine/choreography';
 import { draw } from '../engine/renderer';
 import { mapNormalizedToRect } from './map';
 
 export type StageEnv = { reducedMotion: boolean; mobile: boolean; printing: boolean };
 export type StageMode = 'auto' | 'animate' | 'static';
-export type SceneDef = { formation: string; choreography?: Phase[] };
 export type MorphOpts = { durationMs?: number; stagger?: number; onSettle?: () => void };
 export type InkStage = {
-  scene(name: string, def: SceneDef): void;
-  goto(name: string): void;
-  next(): void;
   isStatic(): boolean;
   snapshotFor(rect: Rect): void;
   morph(from: string, to: string, opts?: MorphOpts): void;
@@ -37,10 +32,6 @@ export function createInkStage(
   const mode: StageMode = opts?.mode ?? 'auto';
   const env: StageEnv = opts?.env ?? defaultEnv();
 
-  const scenes = new Map<string, SceneDef>();
-  const order: string[] = [];
-  let current: string | null = null;
-
   let rafId = 0;
   const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
 
@@ -51,28 +42,9 @@ export function createInkStage(
     );
   }
 
-  function scene(name: string, def: SceneDef): void {
-    if (!scenes.has(name)) order.push(name);
-    scenes.set(name, def);
-    if (current === null) current = name;
-  }
-
-  function goto(name: string): void {
-    if (scenes.has(name)) current = name;
-  }
-
-  function next(): void {
-    if (current === null) return;
-    const i = order.indexOf(current);
-    if (i >= 0 && i + 1 < order.length) current = order[i + 1];
-  }
-
   function snapshotFor(rect: Rect): void {
-    if (current === null) return;
-    const def = scenes.get(current);
-    if (!def) return;
-    // Settle: advance to the end of the morph, then draw a single static frame.
-    field.step({ from: def.formation, to: def.formation, m: 1 });
+    // Settle particles at their current target formation and draw a static frame.
+    // Used by beforeprint handlers to render each slide's ink state to its own canvas.
     const ctx = canvas.getContext('2d') as unknown as Parameters<typeof draw>[0] | null;
     if (ctx) draw(ctx, field, palette, rect, dpr);
   }
@@ -129,7 +101,7 @@ export function createInkStage(
     }
   }
 
-  return { scene, goto, next, isStatic, snapshotFor, morph, destroy };
+  return { isStatic, snapshotFor, morph, destroy };
 }
 
 // `mapNormalizedToRect` re-exported so consumers can import the mapper from the
