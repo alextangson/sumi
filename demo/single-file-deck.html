@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>inkmote — single-file deck (P0 acceptance)</title>
+    <style>
+      :root {
+        --bg: rgb(244, 243, 238);
+        --ink: rgb(17, 19, 24);
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial,
+          sans-serif;
+      }
+      /* Shared full-bleed particle canvas: behind slides, never intercepts clicks. */
+      #ink {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+      }
+      .deck {
+        position: relative;
+        z-index: 1;
+        height: 100vh;
+      }
+      /* Slides toggle by visibility/opacity, NOT display — off-screen slides keep
+         layout so canvas text sampling has real geometry. */
+      section.slide {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 8vh 6vw;
+        box-sizing: border-box;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        pointer-events: none;
+      }
+      section.slide.active {
+        visibility: visible;
+        opacity: 1;
+        pointer-events: auto;
+      }
+      h1[data-ink="title"] {
+        font-size: clamp(2.5rem, 9vw, 7rem);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+      [data-ink="stat"] {
+        font-size: clamp(4rem, 18vw, 14rem);
+        font-weight: 800;
+        line-height: 1;
+        margin: 0;
+      }
+      .caption {
+        margin-top: 1.5rem;
+        font-size: clamp(1rem, 2.5vw, 1.5rem);
+        opacity: 0.7;
+        max-width: 36ch;
+      }
+      .hint {
+        position: fixed;
+        bottom: 1rem;
+        right: 1.2rem;
+        z-index: 2;
+        font-size: 0.8rem;
+        opacity: 0.45;
+      }
+      /* Print: every slide region prints its OWN static frame, not the live canvas. */
+      @media print {
+        section.slide {
+          position: relative;
+          visibility: visible;
+          opacity: 1;
+          page-break-after: always;
+          height: 100vh;
+        }
+        #ink {
+          display: none;
+        }
+        .hint {
+          display: none;
+        }
+        .print-frame {
+          display: block;
+        }
+      }
+      .print-frame {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Single shared canvas for all slides. aria-hidden per spec §8 (native text a11y). -->
+    <canvas id="ink" aria-hidden="true"></canvas>
+
+    <main class="deck">
+      <!-- Slide 0: cover — h1 forms via textReveal -->
+      <section class="slide active" id="slide-cover" data-scene="cover">
+        <h1 data-ink="title">Ink in Motion</h1>
+        <canvas class="print-frame" aria-hidden="true"></canvas>
+      </section>
+
+      <!-- Slide 1: section transition — sceneMorph between cover dust and stat dust -->
+      <section class="slide" id="slide-transition" data-scene="transition">
+        <h1 data-ink="title">From idea to impact</h1>
+        <p class="caption">A field of particles morphs between scenes.</p>
+        <canvas class="print-frame" aria-hidden="true"></canvas>
+      </section>
+
+      <!-- Slide 2: body — big stat -->
+      <section class="slide" id="slide-stat" data-scene="stat">
+        <div data-ink="stat" data-value="95%">95%</div>
+        <p class="caption">of the bundle is core engine, not chrome.</p>
+        <canvas class="print-frame" aria-hidden="true"></canvas>
+      </section>
+    </main>
+
+    <div class="hint">← / → to navigate · ⌘P to print (static frames)</div>
+
+    <!-- Relative IIFE: opens by double-click, no server. Exposes window.Inkmote. -->
+    <script src="../dist/index.global.js"></script>
+    <script>
+      (function () {
+        var Inkmote = window.Inkmote;
+        var N = 8000; // fixed global particle count (spec: tier 'normal')
+        var FONT = "800 12vw ui-sans-serif, system-ui, sans-serif";
+
+        var canvas = document.getElementById("ink");
+        var slides = Array.prototype.slice.call(
+          document.querySelectorAll("section.slide")
+        );
+        var idx = 0;
+
+        // Seeded formations shared by the morph slide (deterministic — spec §8).
+        var rngFrom = Inkmote.createRng(7);
+        var rngTo = Inkmote.createRng(42);
+        var ptsFrom = Inkmote.fromText("idea", N, { font: FONT, levels: 24 }, rngFrom);
+        var ptsTo = Inkmote.fromText("impact", N, { font: FONT, levels: 24 }, rngTo);
+
+        // One InkStage per slide, each bound to the same shared canvas.
+        var stages = [];
+
+        function fullBleedRect() {
+          return { x: 0, y: 0, w: window.innerWidth, h: window.innerHeight };
+        }
+
+        function buildStages() {
+          // Slide 0: title forms from particles, then hands off to the real <h1>.
+          var coverH1 = slides[0].querySelector('[data-ink="title"]');
+          stages[0] = Inkmote.textReveal(canvas, coverH1, {
+            text: coverH1.textContent,
+            font: FONT,
+            n: N,
+            seed: 7,
+          });
+
+          // Slide 1: morph between the two seeded formations.
+          stages[1] = Inkmote.sceneMorph(canvas, {
+            from: ptsFrom,
+            to: ptsTo,
+            n: N,
+            seed: 42,
+          });
+
+          // Slide 2: stat number forms from particles, hands off to real text.
+          var statEl = slides[2].querySelector('[data-ink="stat"]');
+          stages[2] = Inkmote.textReveal(canvas, statEl, {
+            text: statEl.getAttribute("data-value"),
+            font: FONT,
+            n: N,
+            seed: 11,
+          });
+        }
+
+        function show(i) {
+          idx = (i + slides.length) % slides.length;
+          slides.forEach(function (s, k) {
+            s.classList.toggle("active", k === idx);
+          });
+          stages[idx].goto(slides[idx].dataset.scene);
+        }
+
+        window.addEventListener("keydown", function (e) {
+          if (e.key === "ArrowRight" || e.key === " ") {
+            e.preventDefault();
+            show(idx + 1);
+          } else if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            show(idx - 1);
+          }
+        });
+
+        // Export safe (spec §8): on print, switch every stage to static and render
+        // each slide region's OWN frame — never the shared live canvas.
+        window.addEventListener("beforeprint", function () {
+          var rect = fullBleedRect();
+          stages.forEach(function (st) {
+            st.snapshotFor(rect);
+          });
+        });
+
+        // Fonts: canvas text sampling must await document.fonts.ready (spec §8).
+        document.fonts.ready.then(function () {
+          buildStages();
+          show(0);
+        });
+      })();
+    </script>
+  </body>
+</html>
