@@ -21,9 +21,19 @@
     "size": "node scripts/size.mjs"
   },
   "devDependencies": {
+    "@types/react": "^18.3.0",
     "jsdom": "^29.1.1",
+    "react": "^18.3.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "vue": ">=3"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "vue": { "optional": true }
   }
 }

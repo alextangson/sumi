@@ -12,7 +12,9 @@
     "isolatedModules": true,
     "noEmit": true,
     "verbatimModuleSyntax": true,
-    "ignoreDeprecations": "6.0"
+    "ignoreDeprecations": "6.0",
+    "jsx": "react-jsx"
   },
-  "include": ["src", "test", "vitest.config.ts", "scripts"]
+  "include": ["src", "test", "vitest.config.ts", "scripts", "adapters/**/*.ts", "adapters/**/*.tsx"],
+  "exclude": ["adapters/**/*.vue"]
 }
