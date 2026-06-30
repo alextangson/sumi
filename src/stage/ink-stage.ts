@@ -81,13 +81,13 @@ export function createInkStage(
   const tiltEnabled = tiltInput !== false && (tiltInput as TiltOpts | undefined)?.depth !== false;
   const tiltOpts: Required<TiltOpts> = {
     depth: true,
-    maxYaw: (tiltInput as TiltOpts | undefined)?.maxYaw ?? 0.6,
-    maxPitch: (tiltInput as TiltOpts | undefined)?.maxPitch ?? 0.3,
+    maxYaw: (tiltInput as TiltOpts | undefined)?.maxYaw ?? 0.42,
+    maxPitch: (tiltInput as TiltOpts | undefined)?.maxPitch ?? 0.16,
     smoothing: (tiltInput as TiltOpts | undefined)?.smoothing ?? 0.06,
     autoDrift: (tiltInput as TiltOpts | undefined)?.autoDrift ?? 0.0003,
     staticYaw: (tiltInput as TiltOpts | undefined)?.staticYaw ?? 0.12,
     staticPitch: (tiltInput as TiltOpts | undefined)?.staticPitch ?? 0.06,
-    amplitude: (tiltInput as TiltOpts | undefined)?.amplitude ?? 0.22,
+    amplitude: (tiltInput as TiltOpts | undefined)?.amplitude ?? 0.06,
   };
 
   let rafId = 0;
@@ -152,7 +152,7 @@ export function createInkStage(
     return {
       yaw: overrideYaw ?? currentYaw,
       pitch: overridePitch ?? currentPitch,
-      focal: 1000,
+      focal: 1.8,
     };
   }
 
@@ -188,8 +188,12 @@ export function createInkStage(
       return; // Pause until visibilitychange resumes us
     }
     if (tiltEnabled) {
-      driftYaw += tiltOpts.autoDrift;
-      currentYaw += (targetYaw + driftYaw - currentYaw) * tiltOpts.smoothing;
+      // driftYaw is a PHASE that advances slowly; the actual yaw offset is a
+      // BOUNDED sine sway (never runs away — unbounded accumulation would spin
+      // the formation edge-on and scatter the random-depth grains into noise).
+      driftYaw += 0.004;
+      const drift = 0.05 * Math.sin(driftYaw);
+      currentYaw += (targetYaw + drift - currentYaw) * tiltOpts.smoothing;
       currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
     }
     const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
@@ -257,10 +261,12 @@ export function createInkStage(
       const m = (time - start) >= durationMs ? 1 : rawM;
       field.step({ from, to, m, stagger });
 
-      // Smooth tilt angles toward target each frame
+      // Smooth tilt angles toward target each frame (bounded sine sway — never
+      // accumulates unbounded, which would spin the formation edge-on).
       if (tiltEnabled) {
-        driftYaw += tiltOpts.autoDrift;
-        currentYaw += (targetYaw + driftYaw - currentYaw) * tiltOpts.smoothing;
+        driftYaw += 0.004;
+        const drift = 0.05 * Math.sin(driftYaw);
+        currentYaw += (targetYaw + drift - currentYaw) * tiltOpts.smoothing;
         currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
       }
 

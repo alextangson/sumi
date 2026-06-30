@@ -54,10 +54,10 @@ export function withVolume(
   rng: Rng,
   thickness?: number,
 ): Pt[] {
-  const t = thickness ?? amplitude;
+  const t = thickness ?? amplitude * 0.6;
   return pts.map((p) => ({
     ...p,
-    z: coherentDepth(p.x, p.y, amplitude) * 0.5 + (rng() - 0.5) * 2 * t,
+    z: coherentDepth(p.x, p.y, amplitude) + (rng() - 0.5) * 2 * t,
   }));
 }
 

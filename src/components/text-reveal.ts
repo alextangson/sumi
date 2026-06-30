@@ -4,7 +4,7 @@ import { fromText } from '../engine/formations';
 import { createField } from '../engine/field';
 import { createPalette } from '../engine/palette';
 import { createInkStage, type InkStage, type TiltOpts } from '../stage/ink-stage';
-import { withVolume } from '../engine/depth';
+import { withDepth } from '../engine/depth';
 import type { ParticleShape } from '../engine/renderer';
 
 export type TextRevealOpts = { text: string; font?: string; n?: number; seed?: number; shape?: ParticleShape; onSettle?: () => void; tilt?: TiltOpts | false };
@@ -37,7 +37,7 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
   // Seed both formations with the dispersed cloud so the field is valid
   // before fonts.ready resolves; the text formation overwrites once sampled.
   const rawCloud = dispersed(n, rng);
-  const cloud = tiltEnabled ? withVolume(rawCloud, amplitude, rng) : rawCloud;
+  const cloud = tiltEnabled ? withDepth(rawCloud, amplitude) : rawCloud;
   field.setFormation('dispersed', cloud);
   field.setFormation('text', cloud);
 
@@ -51,7 +51,7 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
   void (async () => {
     await document.fonts.ready;
     const rawText = fromText(opts.text, n, { font, levels: 24 }, rng);
-    const text = tiltEnabled ? withVolume(rawText, amplitude, rng) : rawText;
+    const text = tiltEnabled ? withDepth(rawText, amplitude) : rawText;
     field.setFormation('text', text);
     // Drive the particle coalesce animation; hand off to native h1 only after settle.
     stage.morph('dispersed', 'text', {

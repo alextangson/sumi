@@ -81,7 +81,7 @@ function resolvePosition(
   view?: ViewParams,
 ): { x: number; y: number; sizeMul: number } {
   if (view) {
-    const focal = view.focal ?? 1000;
+    const focal = view.focal ?? 1.8;
     const pivotX = view.pivotX ?? 0;
     const pivotY = view.pivotY ?? 0;
     const proj = project3d(p.x, p.y, p.z, view.yaw, view.pitch, focal, pivotX, pivotY);

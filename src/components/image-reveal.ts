@@ -4,7 +4,7 @@ import { fromImage } from '../engine/formations';
 import { createField } from '../engine/field';
 import { createPalette } from '../engine/palette';
 import { createInkStage, type InkStage, type TiltOpts } from '../stage/ink-stage';
-import { withVolume } from '../engine/depth';
+import { withDepth } from '../engine/depth';
 import type { ParticleShape } from '../engine/renderer';
 
 export type ImageRevealOpts = { n?: number; seed?: number; shape?: ParticleShape; alt?: string; tilt?: TiltOpts | false };
@@ -44,14 +44,14 @@ export function imageReveal(
 
   // Dispersed cloud is the 'from' formation; image sample is the 'to'.
   const rawCloud = dispersed(n, rng);
-  const cloud = tiltEnabled ? withVolume(rawCloud, amplitude, rng) : rawCloud;
+  const cloud = tiltEnabled ? withDepth(rawCloud, amplitude) : rawCloud;
   field.setFormation('from', cloud);
 
   // fromImage is browser-only; if ctx is null (jsdom) it returns an empty/origin
   // field which is fine — the unit test only checks stage shape and a11y attrs.
   const rawImagePts = fromImage(img, n, { levels: 24 }, rng);
   const rawFallback = rawImagePts.length > 0 ? rawImagePts : rawCloud;
-  const imagePts = tiltEnabled ? withVolume(rawFallback, amplitude, rng) : rawFallback;
+  const imagePts = tiltEnabled ? withDepth(rawFallback, amplitude) : rawFallback;
   field.setFormation('image', imagePts);
 
   const stage = createInkStage(canvas, field, palette, { shape: opts?.shape, tilt: tiltInput });

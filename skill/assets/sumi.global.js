@@ -317,12 +317,8 @@ var Sumi = (() => {
   function coherentDepth(x, y, amplitude) {
     return amplitude * (Math.sin(x * 7.5 + y * 2.5) * 0.55 + Math.sin(x * 3 - y * 6.5 + 1.3) * 0.35 + Math.sin(y * 12 + x * 1.5) * 0.22);
   }
-  function withVolume(pts, amplitude, rng, thickness) {
-    const t = thickness ?? amplitude;
-    return pts.map((p) => ({
-      ...p,
-      z: coherentDepth(p.x, p.y, amplitude) * 0.5 + (rng() - 0.5) * 2 * t
-    }));
+  function withDepth(pts, amplitude) {
+    return pts.map((p) => ({ ...p, z: coherentDepth(p.x, p.y, amplitude) }));
   }
   function project3d(x, y, z, yaw, pitch, focal, pivotX = 0, pivotY = 0) {
     const cy = Math.cos(yaw);
@@ -382,7 +378,7 @@ var Sumi = (() => {
   }
   function resolvePosition(p, rect, view) {
     if (view) {
-      const focal = view.focal ?? 1e3;
+      const focal = view.focal ?? 1.8;
       const pivotX = view.pivotX ?? 0;
       const pivotY = view.pivotY ?? 0;
       const proj = project3d(p.x, p.y, p.z, view.yaw, view.pitch, focal, pivotX, pivotY);
@@ -431,13 +427,13 @@ var Sumi = (() => {
     const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
     const tiltOpts = {
       depth: true,
-      maxYaw: tiltInput?.maxYaw ?? 0.6,
-      maxPitch: tiltInput?.maxPitch ?? 0.3,
+      maxYaw: tiltInput?.maxYaw ?? 0.42,
+      maxPitch: tiltInput?.maxPitch ?? 0.16,
       smoothing: tiltInput?.smoothing ?? 0.06,
       autoDrift: tiltInput?.autoDrift ?? 3e-4,
       staticYaw: tiltInput?.staticYaw ?? 0.12,
       staticPitch: tiltInput?.staticPitch ?? 0.06,
-      amplitude: tiltInput?.amplitude ?? 0.22
+      amplitude: tiltInput?.amplitude ?? 0.06
     };
     let rafId = 0;
     const dpr = Math.min(typeof devicePixelRatio === "number" && devicePixelRatio || 1, 2);
@@ -484,7 +480,7 @@ var Sumi = (() => {
       return {
         yaw: overrideYaw ?? currentYaw,
         pitch: overridePitch ?? currentPitch,
-        focal: 1e3
+        focal: 1.8
       };
     }
     function snapshotFor(rect) {
@@ -508,8 +504,9 @@ var Sumi = (() => {
         return;
       }
       if (tiltEnabled) {
-        driftYaw += tiltOpts.autoDrift;
-        currentYaw += (targetYaw + driftYaw - currentYaw) * tiltOpts.smoothing;
+        driftYaw += 4e-3;
+        const drift = 0.05 * Math.sin(driftYaw);
+        currentYaw += (targetYaw + drift - currentYaw) * tiltOpts.smoothing;
         currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
       }
       const dpr2 = typeof devicePixelRatio === "number" && devicePixelRatio || 1;
@@ -563,8 +560,9 @@ var Sumi = (() => {
         const m = time - start >= durationMs ? 1 : rawM;
         field.step({ from, to, m, stagger });
         if (tiltEnabled) {
-          driftYaw += tiltOpts.autoDrift;
-          currentYaw += (targetYaw + driftYaw - currentYaw) * tiltOpts.smoothing;
+          driftYaw += 4e-3;
+          const drift = 0.05 * Math.sin(driftYaw);
+          currentYaw += (targetYaw + drift - currentYaw) * tiltOpts.smoothing;
           currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
         }
         if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites, currentView());
@@ -617,7 +615,7 @@ var Sumi = (() => {
     const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
     const amplitude = tiltInput?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE;
     const rawCloud = dispersed(n, rng);
-    const cloud = tiltEnabled ? withVolume(rawCloud, amplitude, rng) : rawCloud;
+    const cloud = tiltEnabled ? withDepth(rawCloud, amplitude) : rawCloud;
     field.setFormation("dispersed", cloud);
     field.setFormation("text", cloud);
     h1.style.opacity = "0";
@@ -627,7 +625,7 @@ var Sumi = (() => {
     void (async () => {
       await document.fonts.ready;
       const rawText = fromText(opts.text, n, { font, levels: 24 }, rng);
-      const text = tiltEnabled ? withVolume(rawText, amplitude, rng) : rawText;
+      const text = tiltEnabled ? withDepth(rawText, amplitude) : rawText;
       field.setFormation("text", text);
       stage.morph("dispersed", "text", {
         durationMs: 1600,
@@ -652,8 +650,8 @@ var Sumi = (() => {
     const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
     const amplitude = tiltInput?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE2;
     const field = createField(n, rng);
-    field.setFormation("from", tiltEnabled ? withVolume(opts.from, amplitude, rng) : opts.from);
-    field.setFormation("to", tiltEnabled ? withVolume(opts.to, amplitude, rng) : opts.to);
+    field.setFormation("from", tiltEnabled ? withDepth(opts.from, amplitude) : opts.from);
+    field.setFormation("to", tiltEnabled ? withDepth(opts.to, amplitude) : opts.to);
     const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: tiltInput });
     stage.morph("from", "to", { durationMs: 1600 });
     return stage;
@@ -683,11 +681,11 @@ var Sumi = (() => {
     const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
     const amplitude = tiltInput?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE3;
     const rawCloud = dispersed2(n, rng);
-    const cloud = tiltEnabled ? withVolume(rawCloud, amplitude, rng) : rawCloud;
+    const cloud = tiltEnabled ? withDepth(rawCloud, amplitude) : rawCloud;
     field.setFormation("from", cloud);
     const rawImagePts = fromImage(img, n, { levels: 24 }, rng);
     const rawFallback = rawImagePts.length > 0 ? rawImagePts : rawCloud;
-    const imagePts = tiltEnabled ? withVolume(rawFallback, amplitude, rng) : rawFallback;
+    const imagePts = tiltEnabled ? withDepth(rawFallback, amplitude) : rawFallback;
     field.setFormation("image", imagePts);
     const stage = createInkStage(canvas, field, palette, { shape: opts?.shape, tilt: tiltInput });
     stage.morph("from", "image", { durationMs: 1600 });
