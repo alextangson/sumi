@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>inkmote playground</title>
+    <style>
+      :root {
+        --bg: #f4f3ee;
+        --ink: #11131a;
+        --panel-bg: rgba(244, 243, 238, 0.92);
+        --border: rgba(17, 19, 24, 0.12);
+        --accent: #11131a;
+        --radius: 8px;
+        --font: ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+      }
+
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html, body {
+        width: 100%; height: 100%;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font);
+        overflow: hidden;
+      }
+
+      #canvas-wrap {
+        position: fixed;
+        inset: 0;
+      }
+
+      canvas#stage {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* ─── control panel ─── */
+      #panel {
+        position: fixed;
+        top: 1.2rem;
+        right: 1.2rem;
+        width: 260px;
+        background: var(--panel-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        z-index: 10;
+        box-shadow: 0 2px 16px rgba(17,19,24,0.08);
+      }
+
+      #panel h2 {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        opacity: 0.45;
+        margin-bottom: 0.1rem;
+      }
+
+      .row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+
+      label {
+        font-size: 0.78rem;
+        font-weight: 500;
+        opacity: 0.7;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      label span { opacity: 1; font-weight: 600; }
+
+      /* source toggle */
+      #source-toggle {
+        display: flex;
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius) - 2px);
+        overflow: hidden;
+      }
+      #source-toggle button {
+        flex: 1;
+        padding: 0.4rem 0;
+        font-size: 0.78rem;
+        font-family: var(--font);
+        font-weight: 600;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        color: var(--ink);
+        opacity: 0.45;
+        transition: background 0.15s, opacity 0.15s;
+      }
+      #source-toggle button.active {
+        background: var(--ink);
+        color: var(--bg);
+        opacity: 1;
+      }
+
+      /* text input */
+      input[type="text"] {
+        width: 100%;
+        padding: 0.45rem 0.6rem;
+        font-size: 0.9rem;
+        font-family: var(--font);
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius) - 2px);
+        background: transparent;
+        color: var(--ink);
+        outline: none;
+      }
+      input[type="text"]:focus { border-color: var(--ink); }
+
+      /* drop zone */
+      #drop-zone {
+        border: 1.5px dashed var(--border);
+        border-radius: calc(var(--radius) - 2px);
+        padding: 0.9rem;
+        text-align: center;
+        font-size: 0.78rem;
+        opacity: 0.6;
+        cursor: pointer;
+        transition: border-color 0.15s, opacity 0.15s;
+        position: relative;
+      }
+      #drop-zone.drag-over { border-color: var(--ink); opacity: 1; }
+      #drop-zone input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+      #img-name {
+        font-size: 0.72rem;
+        opacity: 0.55;
+        margin-top: 0.2rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* selects */
+      select {
+        width: 100%;
+        padding: 0.38rem 0.55rem;
+        font-size: 0.82rem;
+        font-family: var(--font);
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius) - 2px);
+        background: var(--bg);
+        color: var(--ink);
+        cursor: pointer;
+        outline: none;
+      }
+
+      /* range */
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--ink);
+      }
+
+      /* number input */
+      input[type="number"] {
+        width: 100%;
+        padding: 0.38rem 0.55rem;
+        font-size: 0.82rem;
+        font-family: var(--font);
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius) - 2px);
+        background: transparent;
+        color: var(--ink);
+        outline: none;
+      }
+      input[type="number"]:focus { border-color: var(--ink); }
+
+      /* replay button */
+      #btn-replay {
+        width: 100%;
+        padding: 0.5rem;
+        font-size: 0.82rem;
+        font-family: var(--font);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        border: 1.5px solid var(--ink);
+        border-radius: calc(var(--radius) - 2px);
+        background: transparent;
+        color: var(--ink);
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+      }
+      #btn-replay:hover { background: var(--ink); color: var(--bg); }
+
+      /* status */
+      #status {
+        font-size: 0.7rem;
+        opacity: 0.4;
+        min-height: 1em;
+        text-align: right;
+      }
+
+      /* section divider */
+      hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 0.1rem 0;
+      }
+
+      /* hide image / text sections */
+      .source-section { display: none; }
+      .source-section.visible { display: flex; flex-direction: column; gap: 0.3rem; }
+    </style>
+  </head>
+  <body>
+    <div id="canvas-wrap">
+      <canvas id="stage" aria-hidden="true"></canvas>
+    </div>
+
+    <aside id="panel" aria-label="Playground controls">
+      <h2>inkmote playground</h2>
+
+      <!-- Source toggle -->
+      <div class="row">
+        <div id="source-toggle">
+          <button id="btn-text" class="active" aria-pressed="true">Text</button>
+          <button id="btn-image" aria-pressed="false">Image</button>
+        </div>
+      </div>
+
+      <!-- Text source -->
+      <div class="source-section visible" id="text-section">
+        <label for="text-input">Text</label>
+        <input type="text" id="text-input" value="Ink" maxlength="40" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <!-- Image source -->
+      <div class="source-section" id="image-section">
+        <label>Image</label>
+        <div id="drop-zone">
+          Drop image here or click to browse
+          <input type="file" id="file-input" accept="image/*" tabindex="-1" />
+        </div>
+        <div id="img-name"></div>
+      </div>
+
+      <hr />
+
+      <!-- Shape -->
+      <div class="row">
+        <label for="shape-select">Shape</label>
+        <select id="shape-select">
+          <option value="round" selected>Round</option>
+          <option value="square">Square</option>
+          <option value="soft">Soft</option>
+        </select>
+      </div>
+
+      <!-- Count -->
+      <div class="row">
+        <label for="count-range">Particles <span id="count-display">8000</span></label>
+        <input type="range" id="count-range" min="1000" max="15000" step="500" value="8000" />
+      </div>
+
+      <!-- Seed -->
+      <div class="row">
+        <label for="seed-input">Seed</label>
+        <input type="number" id="seed-input" value="1" min="0" max="999999" step="1" />
+      </div>
+
+      <hr />
+
+      <!-- Replay -->
+      <button id="btn-replay">↺ Replay</button>
+
+      <div id="status"></div>
+    </aside>
+
+    <script src="../dist/index.global.js"></script>
+    <script>
+      // ─── state ───────────────────────────────────────────────────────────────
+      let stage = null;
+      let mode = 'text'; // 'text' | 'image'
+      let loadedImage = null; // HTMLImageElement | null
+      let debounceTimer = null;
+
+      const canvas = document.getElementById('stage');
+      const statusEl = document.getElementById('status');
+
+      // ─── controls ────────────────────────────────────────────────────────────
+      const textInput    = document.getElementById('text-input');
+      const fileInput    = document.getElementById('file-input');
+      const dropZone     = document.getElementById('drop-zone');
+      const imgName      = document.getElementById('img-name');
+      const shapeSelect  = document.getElementById('shape-select');
+      const countRange   = document.getElementById('count-range');
+      const countDisplay = document.getElementById('count-display');
+      const seedInput    = document.getElementById('seed-input');
+      const btnReplay    = document.getElementById('btn-replay');
+      const btnText      = document.getElementById('btn-text');
+      const btnImage     = document.getElementById('btn-image');
+      const textSection  = document.getElementById('text-section');
+      const imageSection = document.getElementById('image-section');
+
+      // ─── helpers ─────────────────────────────────────────────────────────────
+      function setStatus(msg) {
+        statusEl.textContent = msg;
+      }
+
+      function getOpts() {
+        return {
+          n:     parseInt(countRange.value, 10),
+          seed:  parseInt(seedInput.value, 10) || 1,
+          shape: shapeSelect.value,
+        };
+      }
+
+      function destroyStage() {
+        if (stage) {
+          try { stage.destroy(); } catch (_) {}
+          stage = null;
+        }
+      }
+
+      /**
+       * Build a dispersed cloud of n random points in [-0.5, 0.5]^2.
+       * Mirrors the pattern in image-reveal.ts so the FROM cloud is deterministic.
+       */
+      function makeCloud(n, seed) {
+        // Use the same mulberry32 the library uses, via Inkmote.createRng
+        const rng = Inkmote.createRng(seed + 999); // offset so cloud differs from target rng
+        return Array.from({ length: n }, () => ({
+          x: rng() - 0.5,
+          y: rng() - 0.5,
+          lvl: Math.floor(rng() * 24),
+        }));
+      }
+
+      async function renderText() {
+        const text = textInput.value.trim() || 'Ink';
+        const { n, seed, shape } = getOpts();
+        setStatus('rendering…');
+
+        // Wait for fonts before calling fromText (library contract)
+        await document.fonts.ready;
+
+        const rng = Inkmote.createRng(seed);
+        const font = `bold ${Math.round(160 * Math.min(1, 10 / Math.max(text.length, 4)))}px ${getComputedStyle(document.body).fontFamily}`;
+        const target = Inkmote.fromText(text, n, { font, levels: 24 }, rng);
+        const cloud  = makeCloud(n, seed);
+
+        destroyStage();
+        stage = Inkmote.sceneMorph(canvas, { from: cloud, to: target, n, seed, shape });
+        setStatus('');
+      }
+
+      async function renderImage() {
+        if (!loadedImage) {
+          setStatus('drop an image to start');
+          return;
+        }
+        const { n, seed, shape } = getOpts();
+        setStatus('rendering…');
+
+        destroyStage();
+        // imageReveal handles fromImage + dispersed-cloud from internally
+        stage = Inkmote.imageReveal(canvas, loadedImage, { n, seed, shape });
+        setStatus('');
+      }
+
+      async function render(immediate = false) {
+        clearTimeout(debounceTimer);
+        if (immediate) {
+          await (mode === 'image' ? renderImage() : renderText());
+        } else {
+          debounceTimer = setTimeout(() => {
+            (mode === 'image' ? renderImage() : renderText()).catch(console.error);
+          }, 200);
+        }
+      }
+
+      // ─── source toggle ────────────────────────────────────────────────────────
+      function setMode(m) {
+        mode = m;
+        if (m === 'text') {
+          btnText.classList.add('active');
+          btnImage.classList.remove('active');
+          btnText.setAttribute('aria-pressed', 'true');
+          btnImage.setAttribute('aria-pressed', 'false');
+          textSection.classList.add('visible');
+          imageSection.classList.remove('visible');
+        } else {
+          btnImage.classList.add('active');
+          btnText.classList.remove('active');
+          btnImage.setAttribute('aria-pressed', 'true');
+          btnText.setAttribute('aria-pressed', 'false');
+          imageSection.classList.add('visible');
+          textSection.classList.remove('visible');
+        }
+        render(true).catch(console.error);
+      }
+
+      btnText.addEventListener('click', () => setMode('text'));
+      btnImage.addEventListener('click', () => setMode('image'));
+
+      // ─── text input ───────────────────────────────────────────────────────────
+      textInput.addEventListener('input', () => render());
+
+      // ─── file / drop zone ─────────────────────────────────────────────────────
+      function loadFile(file) {
+        if (!file || !file.type.startsWith('image/')) return;
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          loadedImage = img;
+          imgName.textContent = file.name;
+          renderImage().catch(console.error);
+        };
+        img.onerror = () => setStatus('could not load image');
+        img.src = url;
+      }
+
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files && fileInput.files[0]) loadFile(fileInput.files[0]);
+      });
+
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+      });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const file = e.dataTransfer?.files?.[0];
+        if (file) loadFile(file);
+      });
+
+      // ─── controls ─────────────────────────────────────────────────────────────
+      shapeSelect.addEventListener('change', () => render(true));
+
+      countRange.addEventListener('input', () => {
+        countDisplay.textContent = countRange.value;
+        render();
+      });
+
+      seedInput.addEventListener('change', () => render(true));
+
+      btnReplay.addEventListener('click', () => render(true));
+
+      // ─── init ─────────────────────────────────────────────────────────────────
+      render(true).catch(console.error);
+    </script>
+  </body>
+</html>
