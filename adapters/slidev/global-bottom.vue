@@ -1,6 +1,6 @@
 <template>
   <!--
-    Inkmote — Slidev global-bottom layer
+    sumi — Slidev global-bottom layer
     =====================================
     Copy this file into your Slidev project at:
       components/global-bottom.vue
@@ -11,7 +11,7 @@
     Configuration: pass options via frontmatter in slides.md:
       ---
       ink:
-        text: 'inkmote'
+        text: 'sumi'
         shape: 'soft'
         seed: 42
       ---
@@ -34,8 +34,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-// In your Slidev project, install inkmote and import from 'inkmote'
-// import { textReveal, sceneMorph, type InkStage } from 'inkmote'
+// In your Slidev project, install sumi and import from 'sumi'
+// import { textReveal, sceneMorph, type InkStage } from 'sumi'
 // For this example file, we use the relative path to the source:
 import { textReveal, sceneMorph, type InkStage } from '../../src/index'
 import { useSlideContext } from '@slidev/client'
@@ -43,7 +43,7 @@ import { useSlideContext } from '@slidev/client'
 // ---------------------------------------------------------------------------
 // Configuration — adjust to taste or wire up via frontmatter
 // ---------------------------------------------------------------------------
-const INK_TEXT = 'inkmote'
+const INK_TEXT = 'sumi'
 const INK_SHAPE = 'soft' as const
 const INK_SEED = 1
 const INK_N = 6000

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>inkmote — capability gallery</title>
+    <title>sumi — capability gallery</title>
     <style>
       :root {
         --bg: #f4f3ee;
@@ -197,7 +197,7 @@
   </head>
   <body>
     <header class="page-header">
-      <h1>inkmote</h1>
+      <h1>sumi</h1>
       <p>A zero-dependency TypeScript particle engine. Each section below plays on scroll — click any card to replay.</p>
     </header>
 
@@ -228,7 +228,7 @@
       <div class="canvas-card" id="card-cover-reveal">
         <canvas id="canvas-cover-reveal" aria-hidden="true"></canvas>
         <div class="card-overlay">
-          <h3 id="h-cover-wordmark">inkmote</h3>
+          <h3 id="h-cover-wordmark">sumi</h3>
           <span class="tagline" id="h-cover-tagline">particles, precisely</span>
         </div>
         <span class="replay-hint">↺ click to replay</span>
@@ -311,7 +311,7 @@
     <script src="../dist/index.global.js"></script>
     <script>
       (function () {
-        var Inkmote = window.Inkmote;
+        var Sumi = window.Sumi;
 
         // ── shared config ──────────────────────────────────────────────────────
         var N = 6000;
@@ -365,7 +365,7 @@
           var entry = registry['text-reveal'];
           if (entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
 
-          entry.stage = Inkmote.textReveal(canvas, h3, {
+          entry.stage = Sumi.textReveal(canvas, h3, {
             text: 'Emerge',
             font: FONT_LARGE,
             n: N,
@@ -387,7 +387,7 @@
           var entry = registry['cover-reveal'];
           if (entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
 
-          entry.stage = Inkmote.coverReveal(canvas, {
+          entry.stage = Sumi.coverReveal(canvas, {
             wordmark: wordmark,
             tagline:  tagline,
             n: N,
@@ -408,7 +408,7 @@
           var entry = registry['stat-reveal'];
           if (entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
 
-          entry.stage = Inkmote.statReveal(canvas, el, {
+          entry.stage = Sumi.statReveal(canvas, el, {
             value: '95%',
             font: FONT_STAT,
             n: N,
@@ -424,10 +424,10 @@
 
         function buildMorphPts() {
           if (ptsIdea) return; // already built
-          var rngA = Inkmote.createRng(41);
-          var rngB = Inkmote.createRng(42);
-          ptsIdea   = Inkmote.fromText('idea',   N, { font: FONT_LARGE, levels: 24 }, rngA);
-          ptsImpact = Inkmote.fromText('impact', N, { font: FONT_LARGE, levels: 24 }, rngB);
+          var rngA = Sumi.createRng(41);
+          var rngB = Sumi.createRng(42);
+          ptsIdea   = Sumi.fromText('idea',   N, { font: FONT_LARGE, levels: 24 }, rngA);
+          ptsImpact = Sumi.fromText('impact', N, { font: FONT_LARGE, levels: 24 }, rngB);
         }
 
         function playSceneMorph() {
@@ -437,7 +437,7 @@
           var entry = registry['scene-morph'];
           if (entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
 
-          entry.stage = Inkmote.sceneMorph(canvas, {
+          entry.stage = Sumi.sceneMorph(canvas, {
             from: ptsIdea,
             to:   ptsImpact,
             n: N,
@@ -456,7 +456,7 @@
           var entry = registry['image-reveal'];
           if (entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
 
-          entry.stage = Inkmote.imageReveal(canvas, emblem, {
+          entry.stage = Sumi.imageReveal(canvas, emblem, {
             n: N,
             seed: 3,
             alt: 'A bold ring emblem assembled from ink particles',
@@ -469,8 +469,8 @@
 
         function buildShapePts() {
           if (ptsShape) return;
-          var rng = Inkmote.createRng(99);
-          ptsShape = Inkmote.fromText('•', N, { font: FONT_SHAPE, levels: 24 }, rng);
+          var rng = Sumi.createRng(99);
+          ptsShape = Sumi.fromText('•', N, { font: FONT_SHAPE, levels: 24 }, rng);
         }
 
         function playShape(which) {
@@ -482,7 +482,7 @@
           if (entry && entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
 
           var cloud = makeCloud(N, 5 + which.length);
-          var st = Inkmote.sceneMorph(canvas, {
+          var st = Sumi.sceneMorph(canvas, {
             from:  cloud,
             to:    ptsShape,
             n:     N,
@@ -497,7 +497,7 @@
         register('shape-soft',   function () { playShape('soft'); });
 
         function makeCloud(n, seed) {
-          var rng = Inkmote.createRng(seed);
+          var rng = Sumi.createRng(seed);
           return Array.from({ length: n }, function () {
             return { x: rng() - 0.5, y: rng() - 0.5, lvl: Math.floor(rng() * 24) };
           });

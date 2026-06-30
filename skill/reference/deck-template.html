@@ -155,15 +155,15 @@
     <div class="hint">← / → or Space to navigate</div>
 
     <!--
-      AGENT: inline the full contents of ${CLAUDE_SKILL_DIR}/assets/inkmote.global.js
+      AGENT: inline the full contents of ${CLAUDE_SKILL_DIR}/assets/sumi.global.js
       between the script tags below. This makes the deck fully self-contained.
     -->
     <script>
-      /* PASTE inkmote.global.js IIFE HERE */
+      /* PASTE sumi.global.js IIFE HERE */
     </script>
     <script>
       (function () {
-        var Inkmote = window.Inkmote;
+        var Sumi = window.Sumi;
         var N = 8000;
         var FONT = "800 10vw ui-sans-serif, system-ui, sans-serif";
 
@@ -186,7 +186,7 @@
           // --- Slide 0: cover title ---
           var coverCanvas = slides[0].querySelector("canvas.ink-live");
           var coverH1 = slides[0].querySelector("[data-ink='title']");
-          Inkmote.textReveal(coverCanvas, coverH1, {
+          Sumi.textReveal(coverCanvas, coverH1, {
             text: coverH1.textContent.trim(),
             font: FONT,
             n: N,
@@ -196,7 +196,7 @@
           // --- Slide 1: stat ---
           var statCanvas = slides[1].querySelector("canvas.ink-live");
           var statEl = slides[1].querySelector("[data-ink='stat']");
-          Inkmote.statReveal(statCanvas, statEl, {
+          Sumi.statReveal(statCanvas, statEl, {
             value: statEl.getAttribute("data-value"),
             n: N,
             seed: 11,
@@ -205,7 +205,7 @@
           // --- Slide 2: image reveal ---
           // Replace the emblem canvas below with any HTMLImageElement for a real image:
           //   var img = new Image(); img.src = "your-ai-image.png";
-          //   img.onload = function() { Inkmote.imageReveal(imageCanvas, img, { n: 5000, seed: 3 }); };
+          //   img.onload = function() { Sumi.imageReveal(imageCanvas, img, { n: 5000, seed: 3 }); };
           var emblem = document.createElement("canvas");
           emblem.width = 512;
           emblem.height = 512;
@@ -220,7 +220,7 @@
             ec.stroke();
           }
           var imageCanvas = slides[2].querySelector("canvas.ink-live");
-          Inkmote.imageReveal(imageCanvas, emblem, {
+          Sumi.imageReveal(imageCanvas, emblem, {
             n: 5000,
             seed: 3,
             alt: "Describe the image for screen readers",

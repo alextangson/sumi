@@ -1,14 +1,14 @@
 ---
-name: inkmote
+name: sumi
 description: >
-  Generates self-contained HTML presentation decks with inkmote's ink sand-painting
+  Generates self-contained HTML presentation decks with sumi's ink sand-painting
   particle style — warm-white background, round ink-stipple particle moments on
   cover/section/stat slides, zero network dependency. Use this skill when the user
   asks for an HTML slideshow, presentation, or deck with a distinctive animated
   particle aesthetic.
 ---
 
-# inkmote Agent Skill
+# sumi Agent Skill
 
 Generate a **single self-contained HTML file** that looks and moves like an ink
 sand-painting. The recognizable style is carried by two things:
@@ -19,13 +19,13 @@ Everything else (layout, fonts, copy) is the agent's tasteful call.
 
 ## Embedding the library
 
-Inline `${CLAUDE_SKILL_DIR}/assets/inkmote.global.js` into a `<script>` tag at the
-bottom of `<body>`. This exposes `window.Inkmote` with all components. No build,
+Inline `${CLAUDE_SKILL_DIR}/assets/sumi.global.js` into a `<script>` tag at the
+bottom of `<body>`. This exposes `window.Sumi` with all components. No build,
 no CDN, no network required at deck-generation time.
 
 ```html
 <script>
-/* paste full contents of ${CLAUDE_SKILL_DIR}/assets/inkmote.global.js here */
+/* paste full contents of ${CLAUDE_SKILL_DIR}/assets/sumi.global.js here */
 </script>
 ```
 
@@ -48,13 +48,13 @@ Slides without particle moments omit the canvas.
 
 | Situation | Component | Declarative attr |
 |---|---|---|
-| Cover / wordmark | `Inkmote.coverReveal(canvas, { wordmark: h1El, tagline?: pEl })` | — |
-| Section / chapter title | `Inkmote.textReveal(canvas, h1El, { text, font, n, seed })` | `data-ink="title"` on h1 + `Inkmote.autoInit(document)` |
-| Key number / stat | `Inkmote.statReveal(canvas, el, { value, n, seed })` | `data-ink="stat" data-value="95%"` (parsed but not auto-wired) |
-| AI-generated image | `Inkmote.imageReveal(canvas, imgEl, { n, seed, alt })` | — |
-| Transition between ideas | `Inkmote.sceneMorph(canvas, { from, to, n, seed })` | `data-ink-transition` |
+| Cover / wordmark | `Sumi.coverReveal(canvas, { wordmark: h1El, tagline?: pEl })` | — |
+| Section / chapter title | `Sumi.textReveal(canvas, h1El, { text, font, n, seed })` | `data-ink="title"` on h1 + `Sumi.autoInit(document)` |
+| Key number / stat | `Sumi.statReveal(canvas, el, { value, n, seed })` | `data-ink="stat" data-value="95%"` (parsed but not auto-wired) |
+| AI-generated image | `Sumi.imageReveal(canvas, imgEl, { n, seed, alt })` | — |
+| Transition between ideas | `Sumi.sceneMorph(canvas, { from, to, n, seed })` | `data-ink-transition` |
 
-**Declarative shortcut**: add `data-ink` attributes and call `Inkmote.autoInit(document)`
+**Declarative shortcut**: add `data-ink` attributes and call `Sumi.autoInit(document)`
 — it wires `textReveal` automatically for `data-ink="title"` elements only. Stat and image
 slides need explicit JS calls via `statReveal` and `imageReveal`.
 
@@ -72,14 +72,14 @@ so wrapping is optional for these but harmless:
 document.fonts.ready.then(function () {
   var canvas = document.querySelector('#slide-cover canvas');
   var h1 = document.querySelector('#slide-cover h1');
-  Inkmote.textReveal(canvas, h1, { text: h1.textContent, n: 8000, seed: 7 });
+  Sumi.textReveal(canvas, h1, { text: h1.textContent, n: 8000, seed: 7 });
 });
 ```
 
 **Example: cover with wordmark and tagline (HTMLElements)**
 ```js
 // cover: wordmark + tagline are real DOM elements
-Inkmote.coverReveal(coverCanvas, { wordmark: document.querySelector('#brand'), tagline: document.querySelector('#tag') });
+Sumi.coverReveal(coverCanvas, { wordmark: document.querySelector('#brand'), tagline: document.querySelector('#tag') });
 ```
 
 ## A11y + perf

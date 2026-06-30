@@ -1,11 +1,11 @@
 /**
- * Inkmote — React adapter
+ * sumi — React adapter
  *
  * Peer dependency: react ≥18. Import from your project after installing:
- *   npm i inkmote   (inkmote is a peerDep — framework package is not yet published)
+ *   npm i sumi   (sumi is a peerDep — framework package is not yet published)
  *
  * Usage:
- *   import { useInkReveal, InkText, InkImage } from 'inkmote/adapters/react'
+ *   import { useInkReveal, InkText, InkImage } from 'sumi/adapters/react'
  */
 import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
@@ -70,7 +70,7 @@ export type InkTextProps = {
  * Renders a full-bleed canvas + a visually hidden h1 for accessibility.
  *
  * @example
- * <InkText text="inkmote" font="700 120px sans-serif" />
+ * <InkText text="sumi" font="700 120px sans-serif" />
  */
 export function InkText({
   text,

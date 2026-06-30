@@ -1,18 +1,18 @@
 /**
- * Inkmote — reveal.js helper
+ * sumi — reveal.js helper
  *
  * Injects a full-bleed, pointer-events:none ink canvas behind reveal.js slides
  * and runs a persistent ambient ink layer (sceneMorph by default, or imageReveal
  * if an image is provided).
  *
  * Usage:
- *   import { injectInkBackground } from 'inkmote/adapters/reveal'
+ *   import { injectInkBackground } from 'sumi/adapters/reveal'
  *
  * @example
  * // In your reveal.js initialisation script:
  * import Reveal from 'reveal.js'
- * import { injectInkBackground } from 'inkmote/adapters/reveal'
- * import { fromText } from 'inkmote'
+ * import { injectInkBackground } from 'sumi/adapters/reveal'
+ * import { fromText } from 'sumi'
  *
  * Reveal.initialize({ ... })
  *

@@ -1,10 +1,10 @@
 /**
- * Inkmote — Vue composable adapter
+ * sumi — Vue composable adapter
  *
- * Peer dependency: vue ≥3. Import from your project after installing inkmote.
+ * Peer dependency: vue ≥3. Import from your project after installing sumi.
  *
  * Usage:
- *   import { useInkReveal } from 'inkmote/adapters/vue'
+ *   import { useInkReveal } from 'sumi/adapters/vue'
  *
  * Note: this file imports `onMounted` / `onBeforeUnmount` / `Ref` from 'vue'.
  * If vue is not installed as a devDependency in this repo, the type-checker
@@ -40,8 +40,8 @@ import { type InkStage } from '../src/index';
  * @example
  * <script setup lang="ts">
  * import { ref } from 'vue'
- * import { textReveal } from 'inkmote'
- * import { useInkReveal } from 'inkmote/adapters/vue'
+ * import { textReveal } from 'sumi'
+ * import { useInkReveal } from 'sumi/adapters/vue'
  *
  * const canvas = ref<HTMLCanvasElement | null>(null)
  * const h1    = ref<HTMLElement | null>(null)

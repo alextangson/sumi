@@ -1,7 +1,12 @@
 {
-  "name": "inkmote",
+  "name": "sumi",
   "version": "0.0.0",
-  "private": true,
+  "description": "Cinematic ink sand-painting particle layer for hero sections and decks — image/text → particles, zero dependencies.",
+  "license": "MIT",
+  "author": "Jiaxin Tang",
+  "repository": { "type": "git", "url": "https://github.com/alextangson/sumi" },
+  "homepage": "https://github.com/alextangson/sumi",
+  "keywords": ["particles", "canvas", "ink", "sand-painting", "morph", "presentation", "hero", "zero-dependency"],
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -17,7 +22,7 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "build": "tsup src/index.ts --format esm,iife --global-name Inkmote --dts && node scripts/size.mjs",
+    "build": "tsup src/index.ts --format esm,iife --global-name Sumi --dts && node scripts/size.mjs",
     "size": "node scripts/size.mjs"
   },
   "devDependencies": {

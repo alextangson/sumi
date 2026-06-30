@@ -1,7 +1,7 @@
-# inkmote Agent Skill
+# sumi Agent Skill
 
 An Agent Skill (on-ramp) that teaches Claude Code and compatible coding agents to
-generate self-contained HTML presentation decks with inkmote's ink sand-painting
+generate self-contained HTML presentation decks with sumi's ink sand-painting
 particle style.
 
 ## What it does
@@ -16,17 +16,14 @@ When installed, agents can generate single-file HTML decks featuring:
 ### Option A — Claude Code plugin marketplace (recommended)
 
 ```
-/plugin marketplace add https://github.com/<owner>/inkmote
-/plugin install inkmote
+/plugin marketplace add https://github.com/alextangson/sumi
+/plugin install sumi
 ```
-
-> Note: `https://github.com/<owner>/inkmote` is a placeholder — replace with the
-> published repo URL once the package is public.
 
 ### Option B — Manual clone
 
 ```bash
-git clone https://github.com/<owner>/inkmote ~/.claude/skills/inkmote
+git clone https://github.com/alextangson/sumi ~/.claude/skills/sumi
 ```
 
 Claude Code picks up any folder under `~/.claude/skills/` as an installed skill.
@@ -36,11 +33,11 @@ Claude Code picks up any folder under `~/.claude/skills/` as an installed skill.
 Pass the agent the URL to this `SKILL.md`:
 
 ```
-https://github.com/<owner>/inkmote/blob/main/skill/SKILL.md
+https://github.com/alextangson/sumi/blob/main/skill/SKILL.md
 ```
 
 The agent reads the skill description and body, then inlines the IIFE from the
-locally-resolved `${CLAUDE_SKILL_DIR}/assets/inkmote.global.js` (cloned path)
+locally-resolved `${CLAUDE_SKILL_DIR}/assets/sumi.global.js` (cloned path)
 into the generated deck. No HTTP fetch — the asset is read from disk.
 
 ## Usage
@@ -48,13 +45,13 @@ into the generated deck. No HTTP fetch — the asset is read from disk.
 After install, trigger the skill in Claude Code:
 
 ```
-/inkmote  Generate a 5-slide deck about our Q3 results
+/sumi  Generate a 5-slide deck about our Q3 results
 ```
 
 Or reference it in a prompt:
 
 ```
-Use the inkmote skill to build a presentation about climate data.
+Use the sumi skill to build a presentation about climate data.
 Include a stat slide for "2.7°C" and an image slide.
 ```
 
@@ -65,7 +62,7 @@ skill/
 ├── SKILL.md                      # Skill definition (frontmatter + agent instructions)
 ├── README.md                     # This file
 ├── assets/
-│   └── inkmote.global.js         # Bundled IIFE — inlined into every generated deck
+│   └── sumi.global.js            # Bundled IIFE — inlined into every generated deck
 └── reference/
     └── deck-template.html        # Minimal 4-slide starting template
 ```
@@ -76,5 +73,5 @@ To rebuild the bundled IIFE after library changes:
 
 ```bash
 npm run build
-cp dist/index.global.js skill/assets/inkmote.global.js
+cp dist/index.global.js skill/assets/sumi.global.js
 ```

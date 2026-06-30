@@ -1,19 +1,19 @@
-# Inkmote Framework Adapters
+# sumi Framework Adapters
 
-Thin, framework-idiomatic wrappers over the vanilla `inkmote` API.
-Each adapter: mounts a canvas → calls the right `Inkmote.*` fn → calls `stage.destroy()` on unmount/cleanup.
+Thin, framework-idiomatic wrappers over the vanilla `sumi` API.
+Each adapter: mounts a canvas → calls the right `Sumi.*` fn → calls `stage.destroy()` on unmount/cleanup.
 
-All frameworks are **peer dependencies** — install them separately. Inkmote ships zero framework code in its main dist.
+All frameworks are **peer dependencies** — install them separately. sumi ships zero framework code in its main dist.
 
 ---
 
 ## React
 
 ```tsx
-// npm i inkmote react
+// npm i sumi react
 import { useRef } from 'react'
-import { textReveal } from 'inkmote'
-import { useInkReveal, InkText, InkImage } from 'inkmote/adapters/react'
+import { textReveal } from 'sumi'
+import { useInkReveal, InkText, InkImage } from 'sumi/adapters/react'
 
 // Hook — bring-your-own canvas
 function HeroSection() {
@@ -33,7 +33,7 @@ function HeroSection() {
 }
 
 // Self-contained components
-<InkText text="inkmote" font="700 120px sans-serif" shape="soft" />
+<InkText text="sumi" font="700 120px sans-serif" shape="soft" />
 <InkImage src="/hero.jpg" alt="Hero scene" />
 ```
 
@@ -43,10 +43,10 @@ function HeroSection() {
 
 ```vue
 <script setup lang="ts">
-// npm i inkmote vue
+// npm i sumi vue
 import { ref } from 'vue'
-import { textReveal } from 'inkmote'
-import { useInkReveal } from 'inkmote/adapters/vue'
+import { textReveal } from 'sumi'
+import { useInkReveal } from 'sumi/adapters/vue'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const h1     = ref<HTMLElement | null>(null)
@@ -66,8 +66,8 @@ useInkReveal(canvas, (el) => textReveal(el, h1.value!, { text: 'Hello' }))
 
 ```svelte
 <script lang="ts">
-  // npm i inkmote svelte
-  import { inkReveal } from 'inkmote/adapters/svelte'
+  // npm i sumi svelte
+  import { inkReveal } from 'sumi/adapters/svelte'
   let titleEl: HTMLElement
 </script>
 
@@ -86,10 +86,10 @@ The action supports `kind: 'text' | 'image' | 'scene'`. Passing new params trigg
 ## reveal.js
 
 ```js
-// npm i inkmote reveal.js
+// npm i sumi reveal.js
 import Reveal from 'reveal.js'
-import { fromText } from 'inkmote'
-import { injectInkBackground } from 'inkmote/adapters/reveal'
+import { fromText } from 'sumi'
+import { injectInkBackground } from 'sumi/adapters/reveal'
 
 Reveal.initialize({ /* ... */ })
 
@@ -114,7 +114,7 @@ handle.destroy()
 Copy `adapters/slidev/global-bottom.vue` into your Slidev project:
 
 ```
-cp node_modules/inkmote/adapters/slidev/global-bottom.vue \
+cp node_modules/sumi/adapters/slidev/global-bottom.vue \
    components/global-bottom.vue
 ```
 
@@ -125,7 +125,7 @@ Optional frontmatter overrides in `slides.md`:
 ```yaml
 ---
 ink:
-  text: 'inkmote'
+  text: 'sumi'
   shape: 'soft'
   seed: 42
   n: 6000
@@ -136,7 +136,7 @@ ink:
 
 ## Astro
 
-Astro is server-rendered — use the vanilla `Inkmote.*` API in a `<script>` tag, or drop in the React adapter if you're using `@astrojs/react`.
+Astro is server-rendered — use the vanilla `sumi` API in a `<script>` tag, or drop in the React adapter if you're using `@astrojs/react`.
 
 **Vanilla (recommended):**
 
@@ -145,13 +145,13 @@ Astro is server-rendered — use the vanilla `Inkmote.*` API in a `<script>` tag
 // MyHero.astro — no imports needed server-side
 ---
 <canvas id="ink-canvas" style="width:100%;height:400px" />
-<h1 id="ink-title">inkmote</h1>
+<h1 id="ink-title">sumi</h1>
 
 <script>
-  import { textReveal } from 'inkmote'
+  import { textReveal } from 'sumi'
   const canvas = document.getElementById('ink-canvas') as HTMLCanvasElement
   const h1     = document.getElementById('ink-title') as HTMLElement
-  textReveal(canvas, h1, { text: 'inkmote' })
+  textReveal(canvas, h1, { text: 'sumi' })
 </script>
 ```
 
@@ -159,9 +159,9 @@ Astro is server-rendered — use the vanilla `Inkmote.*` API in a `<script>` tag
 
 ```astro
 ---
-import { InkText } from 'inkmote/adapters/react'
+import { InkText } from 'sumi/adapters/react'
 ---
-<InkText client:only="react" text="inkmote" />
+<InkText client:only="react" text="sumi" />
 ```
 
 ---

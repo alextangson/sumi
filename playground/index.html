@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>inkmote playground</title>
+    <title>sumi playground</title>
     <style>
       :root {
         --bg: #f4f3ee;
@@ -228,7 +228,7 @@
     </div>
 
     <aside id="panel" aria-label="Playground controls">
-      <h2>inkmote playground</h2>
+      <h2>sumi playground</h2>
 
       <!-- Source toggle -->
       <div class="row">
@@ -337,8 +337,8 @@
        * Mirrors the pattern in image-reveal.ts so the FROM cloud is deterministic.
        */
       function makeCloud(n, seed) {
-        // Use the same mulberry32 the library uses, via Inkmote.createRng
-        const rng = Inkmote.createRng(seed + 999); // offset so cloud differs from target rng
+        // Use the same mulberry32 the library uses, via Sumi.createRng
+        const rng = Sumi.createRng(seed + 999); // offset so cloud differs from target rng
         return Array.from({ length: n }, () => ({
           x: rng() - 0.5,
           y: rng() - 0.5,
@@ -354,13 +354,13 @@
         // Wait for fonts before calling fromText (library contract)
         await document.fonts.ready;
 
-        const rng = Inkmote.createRng(seed);
+        const rng = Sumi.createRng(seed);
         const font = `bold ${Math.round(160 * Math.min(1, 10 / Math.max(text.length, 4)))}px ${getComputedStyle(document.body).fontFamily}`;
-        const target = Inkmote.fromText(text, n, { font, levels: 24 }, rng);
+        const target = Sumi.fromText(text, n, { font, levels: 24 }, rng);
         const cloud  = makeCloud(n, seed);
 
         destroyStage();
-        stage = Inkmote.sceneMorph(canvas, { from: cloud, to: target, n, seed, shape });
+        stage = Sumi.sceneMorph(canvas, { from: cloud, to: target, n, seed, shape });
         setStatus('');
       }
 
@@ -374,7 +374,7 @@
 
         destroyStage();
         // imageReveal handles fromImage + dispersed-cloud from internally
-        stage = Inkmote.imageReveal(canvas, loadedImage, { n, seed, shape });
+        stage = Sumi.imageReveal(canvas, loadedImage, { n, seed, shape });
         setStatus('');
       }
 

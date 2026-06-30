@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>inkmote — single-file deck (P0 acceptance)</title>
+    <title>sumi — single-file deck (P0 acceptance)</title>
     <style>
       :root {
         --bg: rgb(244, 243, 238);
@@ -187,11 +187,11 @@
 
     <div class="hint">← / → to navigate · ⌘P to print (static frames)</div>
 
-    <!-- Relative IIFE: opens by double-click, no server. Exposes window.Inkmote. -->
+    <!-- Relative IIFE: opens by double-click, no server. Exposes window.Sumi. -->
     <script src="../dist/index.global.js"></script>
     <script>
       (function () {
-        var Inkmote = window.Inkmote;
+        var Sumi = window.Sumi;
         var N = 8000; // fixed global particle count (spec: tier 'normal')
         var FONT = "800 12vw ui-sans-serif, system-ui, sans-serif";
 
@@ -218,7 +218,7 @@
           // COVER canvas to opacity:0 and shows the h1 — affects only this slide.
           var coverCanvas = slides[0].querySelector('canvas.ink-live');
           var coverH1 = slides[0].querySelector('[data-ink="title"]');
-          stages[0] = Inkmote.textReveal(coverCanvas, coverH1, {
+          stages[0] = Sumi.textReveal(coverCanvas, coverH1, {
             text: coverH1.textContent,
             font: FONT,
             n: N,
@@ -228,7 +228,7 @@
 
           // --- Slide 1: morph ---
           var morphCanvas = slides[1].querySelector('canvas.ink-live');
-          stages[1] = Inkmote.sceneMorph(morphCanvas, {
+          stages[1] = Sumi.sceneMorph(morphCanvas, {
             from: ptsFrom,
             to: ptsTo,
             n: N,
@@ -239,7 +239,7 @@
           // --- Slide 2: stat number ---
           var statCanvas = slides[2].querySelector('canvas.ink-live');
           var statEl = slides[2].querySelector('[data-ink="stat"]');
-          stages[2] = Inkmote.textReveal(statCanvas, statEl, {
+          stages[2] = Sumi.textReveal(statCanvas, statEl, {
             text: statEl.getAttribute("data-value"),
             font: FONT,
             n: N,
@@ -268,7 +268,7 @@
             ec.fill();
           }
           var imageCanvas = slides[3].querySelector('canvas.ink-live');
-          stages[3] = Inkmote.imageReveal(imageCanvas, emblem, {
+          stages[3] = Sumi.imageReveal(imageCanvas, emblem, {
             n: N,
             seed: 3,
             shape: SHAPE,
@@ -342,10 +342,10 @@
 
         // Fonts: canvas text sampling must await document.fonts.ready (spec §8).
         document.fonts.ready.then(function () {
-          var rngFrom = Inkmote.createRng(41);
-          var rngTo   = Inkmote.createRng(42);
-          ptsFrom = Inkmote.fromText("idea",   N, { font: FONT, levels: 24 }, rngFrom);
-          ptsTo   = Inkmote.fromText("impact", N, { font: FONT, levels: 24 }, rngTo);
+          var rngFrom = Sumi.createRng(41);
+          var rngTo   = Sumi.createRng(42);
+          ptsFrom = Sumi.fromText("idea",   N, { font: FONT, levels: 24 }, rngFrom);
+          ptsTo   = Sumi.fromText("impact", N, { font: FONT, levels: 24 }, rngTo);
           buildStages();
           show(0);
         });

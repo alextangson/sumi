@@ -1,5 +1,5 @@
 "use strict";
-var Inkmote = (() => {
+var Sumi = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -26,10 +26,14 @@ var Inkmote = (() => {
     createRng: () => createRng,
     easedProgress: () => easedProgress,
     fromImage: () => fromImage,
+    fromImageData: () => fromImageData,
+    fromSVGPath: () => fromSVGPath,
+    fromShape: () => fromShape,
     fromText: () => fromText,
     imageReveal: () => imageReveal,
     parseInkAttributes: () => parseInkAttributes,
     parseStatValue: () => parseStatValue,
+    recommendedParticleCount: () => recommendedParticleCount,
     sceneMorph: () => sceneMorph,
     statReveal: () => statReveal,
     textReveal: () => textReveal
@@ -173,6 +177,43 @@ var Inkmote = (() => {
     ctx.drawImage(img, fit.x, fit.y, fit.w, fit.h);
     const buf = canvasToPixelBuffer(canvas, ctx);
     return fromImageData(buf, n, opts, rng);
+  }
+  function fromShape(draw2, n, opts, rng) {
+    const size = 1024;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return [];
+    ctx.fillStyle = "#f4f3ee";
+    ctx.fillRect(0, 0, size, size);
+    draw2(ctx, size);
+    const buf = canvasToPixelBuffer(canvas, ctx);
+    return fromImageData(buf, n, opts, rng);
+  }
+  function fromSVGPath(pathData, n, opts, rng) {
+    const size = 1024;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return [];
+    ctx.fillStyle = "#f4f3ee";
+    ctx.fillRect(0, 0, size, size);
+    const path = new Path2D(pathData);
+    if (opts.viewBox) {
+      const [minX, minY, vbW, vbH] = opts.viewBox;
+      const fit = containRect(vbW, vbH, size, size);
+      ctx.save();
+      ctx.translate(fit.x - minX * (fit.w / vbW), fit.y - minY * (fit.h / vbH));
+      ctx.scale(fit.w / vbW, fit.h / vbH);
+    }
+    ctx.fillStyle = "#11131A";
+    ctx.fill(path);
+    if (opts.viewBox) ctx.restore();
+    const { viewBox: _vb, ...sampleOpts } = opts;
+    const buf = canvasToPixelBuffer(canvas, ctx);
+    return fromImageData(buf, n, sampleOpts, rng);
   }
 
   // src/engine/choreography.ts
@@ -600,6 +641,25 @@ var Inkmote = (() => {
       onSettle
     });
     return stage;
+  }
+
+  // src/engine/budget.ts
+  function recommendedParticleCount(opts) {
+    const width = opts?.width ?? (typeof innerWidth === "number" ? innerWidth : 1280);
+    const dpr = opts?.dpr ?? (typeof devicePixelRatio === "number" ? devicePixelRatio : 1);
+    let budget;
+    if (width >= 1200 && dpr <= 1) {
+      budget = 15e3;
+    } else if (width >= 1200) {
+      budget = 12e3;
+    } else if (width >= 768) {
+      budget = 8e3;
+    } else if (width >= 480) {
+      budget = 4e3;
+    } else {
+      budget = 2e3;
+    }
+    return Math.min(budget, 15e3);
   }
   return __toCommonJS(index_exports);
 })();

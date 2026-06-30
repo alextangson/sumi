@@ -2,7 +2,7 @@
 
 ## Particle budget
 
-Inkmote caps particle count at **15,000** to keep frame time under 4ms on mainstream hardware.
+sumi caps particle count at **15,000** to keep frame time under 4ms on mainstream hardware.
 
 Use `recommendedParticleCount(opts?)` to get an adaptive budget:
 
@@ -15,7 +15,7 @@ Use `recommendedParticleCount(opts?)` to get an adaptive budget:
 | Portrait mobile | < 480 | any | 2 000 |
 
 ```js
-import { recommendedParticleCount } from 'inkmote';
+import { recommendedParticleCount } from 'sumi';
 const N = recommendedParticleCount(); // auto-reads window.innerWidth + devicePixelRatio
 ```
 

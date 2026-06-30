@@ -1,16 +1,16 @@
 /**
- * Inkmote — Svelte action adapter
+ * sumi — Svelte action adapter
  *
  * Svelte actions are plain TS — no Svelte import needed.
  * Compatible with Svelte 4 and 5 (use:inkReveal directive).
  *
  * Usage:
- *   import { inkReveal } from 'inkmote/adapters/svelte'
+ *   import { inkReveal } from 'sumi/adapters/svelte'
  *
  * @example
  * <script lang="ts">
- *   import { inkReveal } from 'inkmote/adapters/svelte'
- *   import type { InkRevealParams } from 'inkmote/adapters/svelte'
+ *   import { inkReveal } from 'sumi/adapters/svelte'
+ *   import type { InkRevealParams } from 'sumi/adapters/svelte'
  * </script>
  *
  * <!-- text reveal -->
