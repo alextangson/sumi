@@ -55,8 +55,12 @@ function makeField(): Field {
 
 // Stub sprite array: one HTMLCanvasElement per level (2 levels).
 // We use plain objects — draw only calls drawImage(sprite, x, y) on them.
-function makeStubSprites(levels: number): HTMLCanvasElement[] {
-  return Array.from({ length: levels }, () => ({}) as HTMLCanvasElement);
+// width mirrors Math.ceil(palette.sizes[lvl] * dpr) at dpr=1: sizes=[2,4] → widths=[2,4].
+function makeStubSprites(levels: number, palette?: { sizes: number[] }): HTMLCanvasElement[] {
+  return Array.from({ length: levels }, (_, i) => {
+    const size = palette ? Math.ceil(palette.sizes[i]) : 4;
+    return { width: size, height: size } as unknown as HTMLCanvasElement;
+  });
 }
 
 describe('bucketize', () => {
@@ -127,7 +131,7 @@ describe('draw', () => {
     it('round with sprites: uses drawImage, no fillRect', () => {
       const { ctx, fillRectLog, drawImageLog } = makeRecordingCtx();
       const field = makeField();
-      const sprites = makeStubSprites(palette.levels);
+      const sprites = makeStubSprites(palette.levels, palette);
       draw(ctx, field, palette, rect, 1, 'round', sprites);
       expect(drawImageLog.length).toBe(field.n);
       expect(fillRectLog.length).toBe(0);
@@ -136,7 +140,7 @@ describe('draw', () => {
     it('soft with sprites: uses drawImage, no fillRect', () => {
       const { ctx, fillRectLog, drawImageLog } = makeRecordingCtx();
       const field = makeField();
-      const sprites = makeStubSprites(palette.levels);
+      const sprites = makeStubSprites(palette.levels, palette);
       draw(ctx, field, palette, rect, 1, 'soft', sprites);
       expect(drawImageLog.length).toBe(field.n);
       expect(fillRectLog.length).toBe(0);
@@ -154,12 +158,32 @@ describe('draw', () => {
     it('drawImage receives the correct sprite for each particle level', () => {
       const { ctx, drawImageLog } = makeRecordingCtx();
       const field = makeField();
-      const sprites = makeStubSprites(palette.levels);
+      const sprites = makeStubSprites(palette.levels, palette);
       draw(ctx, field, palette, rect, 1, 'round', sprites);
       // After bucketize: lvl order is [0, 1, 1]
       expect(drawImageLog[0][0]).toBe(sprites[0]);
       expect(drawImageLog[1][0]).toBe(sprites[1]);
       expect(drawImageLog[2][0]).toBe(sprites[1]);
+    });
+
+    it('drawImage offsets use sprite.width for centering (no sub-pixel bias)', () => {
+      // Particle at x=0, y=0 (normalized center) maps to rect center (50,50) at dpr=1.
+      // With lvl-0 sprite width=2: halfSize=1, expected drawImage dx=50-1=49, dy=50-1=49.
+      const singleParticleField: Field = {
+        particles: [makeParticle(0, 0, 0)],
+        n: 1,
+        setFormation() {},
+        step() {},
+      };
+      const singleRect: Rect = { x: 0, y: 0, w: 100, h: 100 };
+      const { ctx, drawImageLog } = makeRecordingCtx();
+      const sprites = makeStubSprites(palette.levels, palette);
+      draw(ctx, singleParticleField, palette, singleRect, 1, 'round', sprites);
+      const [, dx, dy] = drawImageLog[0];
+      const halfSize = sprites[0].width * 0.5;
+      // mapNormalizedToRect: x=0,y=0 normalized → center of rect (50,50)
+      expect(dx).toBeCloseTo(50 - halfSize);
+      expect(dy).toBeCloseTo(50 - halfSize);
     });
   });
 });

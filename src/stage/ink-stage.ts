@@ -31,7 +31,7 @@ export function createInkStage(
 ): InkStage {
   const mode: StageMode = opts?.mode ?? 'auto';
   const env: StageEnv = opts?.env ?? defaultEnv();
-  const shape: ParticleShape = opts?.shape ?? 'square';
+  const shape: ParticleShape = opts?.shape ?? 'round';
 
   let rafId = 0;
   const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;

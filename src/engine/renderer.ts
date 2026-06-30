@@ -21,6 +21,7 @@ export function buildSprites(
   shape: ParticleShape,
   dpr: number,
 ): HTMLCanvasElement[] {
+  if (typeof document === 'undefined') return [];
   if (shape === 'square') return [];
   const sprites: HTMLCanvasElement[] = [];
   for (let lvl = 0; lvl < palette.levels; lvl++) {
@@ -87,7 +88,7 @@ export function draw(
       const sprite = sprites[p.lvl];
       if (!sprite) continue;
       const { x, y } = mapNormalizedToRect(p, rect);
-      const halfSize = palette.sizes[p.lvl] * dpr * 0.5;
+      const halfSize = sprite.width * 0.5;
       ctx.drawImage(sprite, x * dpr - halfSize, y * dpr - halfSize);
     }
   }
