@@ -175,6 +175,54 @@ export function createInkStage(
     };
   }
 
+  // ── Idle look-around loop ────────────────────────────────────────────────
+  // After a morph settles (tilt-enabled, non-static), we keep rendering via
+  // a lightweight idle rAF so mouse look-around + auto-drift stay live.
+  // The loop is paused when the page is hidden (Page Visibility API).
+
+  let idleRafId = 0;
+
+  function idleTick(): void {
+    if (document.hidden) {
+      idleRafId = 0;
+      return; // Pause until visibilitychange resumes us
+    }
+    if (tiltEnabled) {
+      driftYaw += tiltOpts.autoDrift;
+      currentYaw += (targetYaw + driftYaw - currentYaw) * tiltOpts.smoothing;
+      currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
+    }
+    const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
+    const ctx = canvas.getContext('2d') as unknown as Parameters<typeof draw>[0] | null;
+    if (ctx) draw(ctx, field, palette, fullRect(), dpr, shape, sprites, currentView());
+    idleRafId = requestAnimationFrame(idleTick);
+  }
+
+  function startIdleLoop(): void {
+    if (idleRafId) return; // already running
+    if (!document.hidden) {
+      idleRafId = requestAnimationFrame(idleTick);
+    }
+  }
+
+  function stopIdleLoop(): void {
+    if (idleRafId) {
+      cancelAnimationFrame(idleRafId);
+      idleRafId = 0;
+    }
+  }
+
+  function onVisibilityChange(): void {
+    if (!document.hidden && idleRafId === 0 && rafId === 0) {
+      // Page became visible while idle loop was paused — resume it
+      idleRafId = requestAnimationFrame(idleTick);
+    }
+  }
+
+  if (tiltEnabled && typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onVisibilityChange);
+  }
+
   function morph(from: string, to: string, opts?: MorphOpts): void {
     const durationMs = opts?.durationMs ?? 1600;
     const stagger = opts?.stagger ?? 0;
@@ -194,10 +242,12 @@ export function createInkStage(
       return;
     }
 
+    // Cancel any in-flight morph AND the idle loop — we own the single rAF slot.
     if (rafId) {
       cancelAnimationFrame(rafId);
       rafId = 0;
     }
+    stopIdleLoop();
 
     let start = -1;
 
@@ -218,6 +268,8 @@ export function createInkStage(
       if (m >= 1) {
         rafId = 0;
         opts?.onSettle?.();
+        // Morph settled — hand off to idle loop if tilt is live.
+        if (tiltEnabled) startIdleLoop();
       } else {
         rafId = requestAnimationFrame(tick);
       }
@@ -230,6 +282,10 @@ export function createInkStage(
     if (rafId) {
       cancelAnimationFrame(rafId);
       rafId = 0;
+    }
+    stopIdleLoop();
+    if (tiltEnabled && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     }
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', onResize);

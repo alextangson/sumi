@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { coherentDepth, project3d, withDepth } from '../src/engine/depth';
+import { coherentDepth, project3d, withDepth, withVolume } from '../src/engine/depth';
 import { createField } from '../src/engine/field';
+import { createRng } from '../src/engine/rng';
 import type { Pt } from '../src/types';
 
 describe('coherentDepth', () => {
@@ -162,5 +163,74 @@ describe('withDepth', () => {
 
     field.step({ from: 'a', to: 'b', m: 0.5 });
     expect(field.particles[0].z).toBeCloseTo((zA + zB) / 2, 10);
+  });
+});
+
+describe('withVolume', () => {
+  it('is deterministic: same seed + same pts → same z values', () => {
+    const pts: Pt[] = [
+      { x: 0.1, y: 0.2, lvl: 0 },
+      { x: -0.3, y: 0.4, lvl: 1 },
+    ];
+    const r1 = withVolume(pts, 0.22, createRng(42));
+    const r2 = withVolume(pts, 0.22, createRng(42));
+    expect(r1[0].z).toBe(r2[0].z);
+    expect(r1[1].z).toBe(r2[1].z);
+  });
+
+  it('z range is wider than pure coherentDepth surface (thickness adds slab depth)', () => {
+    // Build a grid of points and compare the z spread from withVolume vs withDepth.
+    const pts: Pt[] = [];
+    for (let i = -5; i <= 5; i++) {
+      for (let j = -5; j <= 5; j++) {
+        pts.push({ x: i * 0.05, y: j * 0.05, lvl: 0 });
+      }
+    }
+    const amplitude = 0.22;
+    const surfaceZs = withDepth(pts, amplitude).map((p) => p.z ?? 0);
+    const volumeZs = withVolume(pts, amplitude, createRng(7)).map((p) => p.z ?? 0);
+
+    const surfaceRange = Math.max(...surfaceZs) - Math.min(...surfaceZs);
+    const volumeRange = Math.max(...volumeZs) - Math.min(...volumeZs);
+
+    // Volume slab should have meaningfully wider z spread than pure surface relief.
+    expect(volumeRange).toBeGreaterThan(surfaceRange);
+  });
+
+  it('preserves x, y, lvl on each point', () => {
+    const pts: Pt[] = [{ x: 0.3, y: -0.2, lvl: 7 }];
+    const [out] = withVolume(pts, 0.22, createRng(1));
+    expect(out.x).toBe(0.3);
+    expect(out.y).toBe(-0.2);
+    expect(out.lvl).toBe(7);
+  });
+
+  it('z is defined for every point', () => {
+    const pts: Pt[] = [{ x: 0.1, y: 0.1, lvl: 0 }, { x: -0.1, y: -0.1, lvl: 1 }];
+    const result = withVolume(pts, 0.22, createRng(3));
+    for (const p of result) {
+      expect(p.z).toBeDefined();
+    }
+  });
+
+  it('z=0 when amplitude=0 and thickness defaults to amplitude=0 (pure surface)', () => {
+    const pts: Pt[] = [{ x: 0.2, y: 0.3, lvl: 0 }];
+    // amplitude=0 → coherentDepth=0; thickness defaults to amplitude=0 → jitter=0
+    const [out] = withVolume(pts, 0, createRng(1));
+    expect(out.z).toBe(0);
+  });
+
+  it('explicit thickness controls slab depth independent of amplitude', () => {
+    const pts: Pt[] = Array.from({ length: 50 }, (_, i) => ({
+      x: (i / 50) - 0.5,
+      y: 0,
+      lvl: 0,
+    }));
+    const thinZs = withVolume(pts, 0.22, createRng(5), 0.01).map((p) => p.z ?? 0);
+    const thickZs = withVolume(pts, 0.22, createRng(5), 0.5).map((p) => p.z ?? 0);
+    const thinRange = Math.max(...thinZs) - Math.min(...thinZs);
+    const thickRange = Math.max(...thickZs) - Math.min(...thickZs);
+    // Thick slab must span significantly more z than thin slab
+    expect(thickRange).toBeGreaterThan(thinRange * 2);
   });
 });

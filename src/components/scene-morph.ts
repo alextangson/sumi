@@ -3,7 +3,7 @@ import { createRng } from '../engine/rng';
 import { createField } from '../engine/field';
 import { createPalette } from '../engine/palette';
 import { createInkStage, type InkStage, type TiltOpts } from '../stage/ink-stage';
-import { withDepth } from '../engine/depth';
+import { withVolume } from '../engine/depth';
 import type { ParticleShape } from '../engine/renderer';
 
 export type SceneMorphOpts = { from: Pt[]; to: Pt[]; n?: number; seed?: number; shape?: ParticleShape; tilt?: TiltOpts | false };
@@ -23,8 +23,8 @@ export function sceneMorph(canvas: HTMLCanvasElement, opts: SceneMorphOpts): Ink
   const amplitude = (tiltInput as TiltOpts | undefined)?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE;
 
   const field = createField(n, rng);
-  field.setFormation('from', tiltEnabled ? withDepth(opts.from, amplitude) : opts.from);
-  field.setFormation('to', tiltEnabled ? withDepth(opts.to, amplitude) : opts.to);
+  field.setFormation('from', tiltEnabled ? withVolume(opts.from, amplitude, rng) : opts.from);
+  field.setFormation('to', tiltEnabled ? withVolume(opts.to, amplitude, rng) : opts.to);
 
   const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: tiltInput });
   stage.morph('from', 'to', { durationMs: 1600 });

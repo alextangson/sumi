@@ -21,7 +21,7 @@ export function coherentDepth(x: number, y: number, amplitude: number): number {
   );
 }
 
-import type { Pt } from '../types';
+import type { Pt, Rng } from '../types';
 
 /**
  * Return a new array of points with `z` populated via coherentDepth.
@@ -30,6 +30,35 @@ import type { Pt } from '../types';
  */
 export function withDepth(pts: Pt[], amplitude: number): Pt[] {
   return pts.map((p) => ({ ...p, z: coherentDepth(p.x, p.y, amplitude) }));
+}
+
+/**
+ * Return a new array of points where z = coherent surface relief + thickness jitter.
+ *
+ * This gives each formation real volumetric depth — a slab with front-to-back
+ * thickness — so that when the formation rotates in 3D you see a genuine
+ * extruded volume rather than a paper-thin sheet.
+ *
+ * z = coherentDepth(x, y, amplitude) * 0.5   ← surface wave
+ *   + (rng() - 0.5) * 2 * thickness          ← random slab offset
+ *
+ * Default thickness = amplitude (same scale as the surface wave), giving a
+ * clearly visible slab depth on rotation. Pass a smaller value to taste.
+ *
+ * Determinism: the caller passes a seeded `rng`; calling with the same rng
+ * state + same pts produces the same z sequence.
+ */
+export function withVolume(
+  pts: Pt[],
+  amplitude: number,
+  rng: Rng,
+  thickness?: number,
+): Pt[] {
+  const t = thickness ?? amplitude;
+  return pts.map((p) => ({
+    ...p,
+    z: coherentDepth(p.x, p.y, amplitude) * 0.5 + (rng() - 0.5) * 2 * t,
+  }));
 }
 
 export type ProjectionResult = { x: number; y: number; scale: number };

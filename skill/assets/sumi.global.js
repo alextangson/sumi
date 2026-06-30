@@ -317,8 +317,12 @@ var Sumi = (() => {
   function coherentDepth(x, y, amplitude) {
     return amplitude * (Math.sin(x * 7.5 + y * 2.5) * 0.55 + Math.sin(x * 3 - y * 6.5 + 1.3) * 0.35 + Math.sin(y * 12 + x * 1.5) * 0.22);
   }
-  function withDepth(pts, amplitude) {
-    return pts.map((p) => ({ ...p, z: coherentDepth(p.x, p.y, amplitude) }));
+  function withVolume(pts, amplitude, rng, thickness) {
+    const t = thickness ?? amplitude;
+    return pts.map((p) => ({
+      ...p,
+      z: coherentDepth(p.x, p.y, amplitude) * 0.5 + (rng() - 0.5) * 2 * t
+    }));
   }
   function project3d(x, y, z, yaw, pitch, focal, pivotX = 0, pivotY = 0) {
     const cy = Math.cos(yaw);
@@ -497,6 +501,42 @@ var Sumi = (() => {
         h: canvas.clientHeight || canvas.height
       };
     }
+    let idleRafId = 0;
+    function idleTick() {
+      if (document.hidden) {
+        idleRafId = 0;
+        return;
+      }
+      if (tiltEnabled) {
+        driftYaw += tiltOpts.autoDrift;
+        currentYaw += (targetYaw + driftYaw - currentYaw) * tiltOpts.smoothing;
+        currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
+      }
+      const dpr2 = typeof devicePixelRatio === "number" && devicePixelRatio || 1;
+      const ctx = canvas.getContext("2d");
+      if (ctx) draw(ctx, field, palette, fullRect(), dpr2, shape, sprites, currentView());
+      idleRafId = requestAnimationFrame(idleTick);
+    }
+    function startIdleLoop() {
+      if (idleRafId) return;
+      if (!document.hidden) {
+        idleRafId = requestAnimationFrame(idleTick);
+      }
+    }
+    function stopIdleLoop() {
+      if (idleRafId) {
+        cancelAnimationFrame(idleRafId);
+        idleRafId = 0;
+      }
+    }
+    function onVisibilityChange() {
+      if (!document.hidden && idleRafId === 0 && rafId === 0) {
+        idleRafId = requestAnimationFrame(idleTick);
+      }
+    }
+    if (tiltEnabled && typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibilityChange);
+    }
     function morph(from, to, opts2) {
       const durationMs = opts2?.durationMs ?? 1600;
       const stagger = opts2?.stagger ?? 0;
@@ -515,6 +555,7 @@ var Sumi = (() => {
         cancelAnimationFrame(rafId);
         rafId = 0;
       }
+      stopIdleLoop();
       let start = -1;
       function tick(time) {
         if (start < 0) start = time;
@@ -530,6 +571,7 @@ var Sumi = (() => {
         if (m >= 1) {
           rafId = 0;
           opts2?.onSettle?.();
+          if (tiltEnabled) startIdleLoop();
         } else {
           rafId = requestAnimationFrame(tick);
         }
@@ -540,6 +582,10 @@ var Sumi = (() => {
       if (rafId) {
         cancelAnimationFrame(rafId);
         rafId = 0;
+      }
+      stopIdleLoop();
+      if (tiltEnabled && typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibilityChange);
       }
       if (typeof window !== "undefined") {
         window.removeEventListener("resize", onResize);
@@ -571,7 +617,7 @@ var Sumi = (() => {
     const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
     const amplitude = tiltInput?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE;
     const rawCloud = dispersed(n, rng);
-    const cloud = tiltEnabled ? withDepth(rawCloud, amplitude) : rawCloud;
+    const cloud = tiltEnabled ? withVolume(rawCloud, amplitude, rng) : rawCloud;
     field.setFormation("dispersed", cloud);
     field.setFormation("text", cloud);
     h1.style.opacity = "0";
@@ -581,7 +627,7 @@ var Sumi = (() => {
     void (async () => {
       await document.fonts.ready;
       const rawText = fromText(opts.text, n, { font, levels: 24 }, rng);
-      const text = tiltEnabled ? withDepth(rawText, amplitude) : rawText;
+      const text = tiltEnabled ? withVolume(rawText, amplitude, rng) : rawText;
       field.setFormation("text", text);
       stage.morph("dispersed", "text", {
         durationMs: 1600,
@@ -606,8 +652,8 @@ var Sumi = (() => {
     const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
     const amplitude = tiltInput?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE2;
     const field = createField(n, rng);
-    field.setFormation("from", tiltEnabled ? withDepth(opts.from, amplitude) : opts.from);
-    field.setFormation("to", tiltEnabled ? withDepth(opts.to, amplitude) : opts.to);
+    field.setFormation("from", tiltEnabled ? withVolume(opts.from, amplitude, rng) : opts.from);
+    field.setFormation("to", tiltEnabled ? withVolume(opts.to, amplitude, rng) : opts.to);
     const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: tiltInput });
     stage.morph("from", "to", { durationMs: 1600 });
     return stage;
@@ -637,11 +683,11 @@ var Sumi = (() => {
     const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
     const amplitude = tiltInput?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE3;
     const rawCloud = dispersed2(n, rng);
-    const cloud = tiltEnabled ? withDepth(rawCloud, amplitude) : rawCloud;
+    const cloud = tiltEnabled ? withVolume(rawCloud, amplitude, rng) : rawCloud;
     field.setFormation("from", cloud);
     const rawImagePts = fromImage(img, n, { levels: 24 }, rng);
     const rawFallback = rawImagePts.length > 0 ? rawImagePts : rawCloud;
-    const imagePts = tiltEnabled ? withDepth(rawFallback, amplitude) : rawFallback;
+    const imagePts = tiltEnabled ? withVolume(rawFallback, amplitude, rng) : rawFallback;
     field.setFormation("image", imagePts);
     const stage = createInkStage(canvas, field, palette, { shape: opts?.shape, tilt: tiltInput });
     stage.morph("from", "image", { durationMs: 1600 });

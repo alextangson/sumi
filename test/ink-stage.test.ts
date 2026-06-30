@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
 import { createInkStage } from '../src/stage/ink-stage';
 import type { StageEnv } from '../src/stage/ink-stage';
 import type { Field } from '../src/engine/field';
@@ -265,6 +265,184 @@ describe('createInkStage().morph() static mode', () => {
     }).not.toThrow();
 
     expect(settled).toBe(true);
+    stage.destroy();
+  });
+});
+
+// ── Idle loop + destroy cleanup ──────────────────────────────────────────────
+
+describe('createInkStage() idle loop after morph settle', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.innerHTML = '';
+  });
+
+  /** Build a minimal but functional field with two formations. */
+  function makeField(n = 3) {
+    const pts = Array.from({ length: n }, (_, i) => ({ x: i / n - 0.5, y: 0, lvl: i }));
+    const particles = pts.map((p) => ({
+      targets: {} as Record<string, { x: number; y: number; lvl: number }>,
+      x: p.x, y: p.y, z: 0, phase: 0, lvl: p.lvl,
+    }));
+    const field = {
+      particles,
+      n,
+      setFormation(name: string, ps: typeof pts) {
+        for (let i = 0; i < n; i++) particles[i].targets[name] = ps[i];
+      },
+      step({ from, to, m }: { from: string; to: string; m: number; stagger?: number }) {
+        for (let i = 0; i < n; i++) {
+          const a = particles[i].targets[from];
+          const b = particles[i].targets[to];
+          particles[i].x = a.x + (b.x - a.x) * m;
+          particles[i].y = a.y + (b.y - a.y) * m;
+          particles[i].lvl = b.lvl;
+        }
+      },
+    };
+    field.setFormation('a', pts);
+    field.setFormation('b', pts.map((p) => ({ ...p, x: -p.x })));
+    return field;
+  }
+
+  it('after morph settles, a new rAF is scheduled (idle loop active)', async () => {
+    const rafCalls: number[] = [];
+    const origRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = (cb) => {
+      const id = origRaf(cb);
+      rafCalls.push(id);
+      return id;
+    };
+
+    const canvas = document.createElement('canvas');
+    const stage = createInkStage(canvas, makeField(), fakePalette(), {
+      mode: 'animate',
+      env: ALL_OFF,
+      // tilt is ON by default — idle loop only starts when tiltEnabled
+    });
+
+    let settled = false;
+    stage.morph('a', 'b', {
+      durationMs: 50,
+      onSettle: () => { settled = true; },
+    });
+
+    await vi.waitFor(() => {
+      expect(settled).toBe(true);
+    }, { timeout: 3000 });
+
+    // After settle the idle loop should have scheduled at least one more rAF.
+    const afterSettleCount = rafCalls.length;
+    expect(afterSettleCount).toBeGreaterThan(1);
+
+    globalThis.requestAnimationFrame = origRaf;
+    stage.destroy();
+  });
+
+  it('destroy() cancels the idle loop and removes mousemove + visibilitychange listeners', async () => {
+    const cancelledIds: number[] = [];
+    const origCancel = globalThis.cancelAnimationFrame;
+    globalThis.cancelAnimationFrame = (id) => {
+      cancelledIds.push(id);
+      origCancel(id);
+    };
+
+    const removedCanvas: string[] = [];
+    const removedDoc: string[] = [];
+
+    const canvas = document.createElement('canvas');
+
+    // Spy on canvas.removeEventListener
+    const origCanvasRemove = canvas.removeEventListener.bind(canvas);
+    canvas.removeEventListener = (type: string, ...args: Parameters<typeof canvas.removeEventListener> extends [string, ...infer R] ? R : never) => {
+      removedCanvas.push(type);
+      return origCanvasRemove(type, ...args);
+    };
+
+    // Spy on document.removeEventListener
+    const origDocRemove = document.removeEventListener.bind(document);
+    document.removeEventListener = (type: string, ...args: Parameters<typeof document.removeEventListener> extends [string, ...infer R] ? R : never) => {
+      removedDoc.push(type);
+      return origDocRemove(type, ...args);
+    };
+
+    const stage = createInkStage(canvas, makeField(), fakePalette(), {
+      mode: 'animate',
+      env: ALL_OFF,
+    });
+
+    let settled = false;
+    stage.morph('a', 'b', {
+      durationMs: 50,
+      onSettle: () => { settled = true; },
+    });
+
+    await vi.waitFor(() => {
+      expect(settled).toBe(true);
+    }, { timeout: 3000 });
+
+    // Now destroy — should cancel idle rAF and remove listeners
+    stage.destroy();
+
+    expect(cancelledIds.length).toBeGreaterThan(0);
+    expect(removedCanvas).toContain('mousemove');
+    expect(removedDoc).toContain('visibilitychange');
+
+    globalThis.cancelAnimationFrame = origCancel;
+    document.removeEventListener = origDocRemove;
+  });
+
+  it('destroy() with tilt disabled does NOT remove visibilitychange listener', () => {
+    const removedDoc: string[] = [];
+    const origDocRemove = document.removeEventListener.bind(document);
+    document.removeEventListener = (type: string, ...args: Parameters<typeof document.removeEventListener> extends [string, ...infer R] ? R : never) => {
+      removedDoc.push(type);
+      return origDocRemove(type, ...args);
+    };
+
+    const stage = createInkStage(fakeCanvas(), fakeField(), fakePalette(), {
+      mode: 'animate',
+      env: ALL_OFF,
+      tilt: false,
+    });
+    stage.destroy();
+
+    expect(removedDoc).not.toContain('visibilitychange');
+
+    document.removeEventListener = origDocRemove;
+  });
+
+  it('starting a new morph while idle loop runs cancels the idle loop (single loop discipline)', async () => {
+    const cancelledIds: number[] = [];
+    const origCancel = globalThis.cancelAnimationFrame;
+    globalThis.cancelAnimationFrame = (id) => {
+      cancelledIds.push(id);
+      origCancel(id);
+    };
+
+    const canvas = document.createElement('canvas');
+    const stage = createInkStage(canvas, makeField(), fakePalette(), {
+      mode: 'animate',
+      env: ALL_OFF,
+    });
+
+    // First morph → settles → idle loop starts
+    let settled1 = false;
+    stage.morph('a', 'b', { durationMs: 50, onSettle: () => { settled1 = true; } });
+    await vi.waitFor(() => { expect(settled1).toBe(true); }, { timeout: 3000 });
+
+    const cancelsBeforeSecondMorph = cancelledIds.length;
+
+    // Second morph should cancel the idle loop before starting its own rAF
+    stage.morph('b', 'a', { durationMs: 50 });
+
+    // At least one extra cancellation should have happened for the idle loop
+    expect(cancelledIds.length).toBeGreaterThan(cancelsBeforeSecondMorph);
+
+    globalThis.cancelAnimationFrame = origCancel;
     stage.destroy();
   });
 });
