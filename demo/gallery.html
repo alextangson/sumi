@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>inkmote — capability gallery</title>
+    <style>
+      :root {
+        --bg: #f4f3ee;
+        --ink: #11131a;
+        --border: rgba(17, 19, 24, 0.10);
+        --radius: 12px;
+        --font: ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+        --section-gap: 6rem;
+      }
+
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font);
+        scroll-behavior: smooth;
+      }
+
+      body {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 4rem 2rem 8rem;
+      }
+
+      /* ── page header ── */
+      .page-header {
+        margin-bottom: var(--section-gap);
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 2.5rem;
+      }
+      .page-header h1 {
+        font-size: clamp(2rem, 6vw, 3.5rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        margin-bottom: 0.75rem;
+      }
+      .page-header p {
+        font-size: 1rem;
+        opacity: 0.55;
+        max-width: 50ch;
+      }
+
+      /* ── gallery section ── */
+      .gallery-section {
+        margin-bottom: var(--section-gap);
+      }
+
+      .section-meta {
+        margin-bottom: 1.25rem;
+      }
+      .section-meta .eyebrow {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        opacity: 0.4;
+        margin-bottom: 0.35rem;
+      }
+      .section-meta h2 {
+        font-size: clamp(1.25rem, 3vw, 1.75rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.4rem;
+      }
+      .section-meta p {
+        font-size: 0.9rem;
+        opacity: 0.55;
+        max-width: 52ch;
+        line-height: 1.55;
+      }
+
+      /* ── canvas card ── */
+      .canvas-card {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 7;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        overflow: hidden;
+        background: var(--bg);
+        cursor: pointer;
+      }
+
+      /* Three-up cards for shapes section */
+      .shapes-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+      }
+      .canvas-card.shape-card {
+        aspect-ratio: 1 / 1;
+      }
+      .shape-label {
+        position: absolute;
+        bottom: 0.65rem;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        opacity: 0.4;
+        z-index: 2;
+        pointer-events: none;
+      }
+
+      /* The canvas fills the card; the library auto-sizes it. */
+      .canvas-card canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* Overlay text for text/cover/stat sections — fades in on settle */
+      .card-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+        pointer-events: none;
+      }
+      .card-overlay h3 {
+        font-size: clamp(2.5rem, 7vw, 5rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        opacity: 0;
+        transition: opacity 600ms ease;
+      }
+      .card-overlay .tagline {
+        font-size: clamp(0.85rem, 2vw, 1.1rem);
+        font-weight: 500;
+        opacity: 0;
+        margin-top: 0.5rem;
+        transition: opacity 600ms ease 200ms;
+      }
+      .card-overlay .stat-num {
+        font-size: clamp(4rem, 14vw, 8rem);
+        font-weight: 800;
+        line-height: 1;
+        opacity: 0;
+        transition: opacity 600ms ease;
+      }
+
+      /* Replay hint — appears on hover */
+      .replay-hint {
+        position: absolute;
+        top: 0.65rem;
+        right: 0.75rem;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        z-index: 3;
+        pointer-events: none;
+      }
+      .canvas-card:hover .replay-hint { opacity: 0.35; }
+
+      /* Replay note under cards */
+      .replay-note {
+        margin-top: 0.5rem;
+        font-size: 0.72rem;
+        opacity: 0.35;
+        text-align: right;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .card-overlay h3,
+        .card-overlay .tagline,
+        .card-overlay .stat-num {
+          opacity: 1 !important;
+          transition: none !important;
+        }
+      }
+
+      @media (max-width: 500px) {
+        body { padding: 2rem 1rem 5rem; }
+        .shapes-row { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="page-header">
+      <h1>inkmote</h1>
+      <p>A zero-dependency TypeScript particle engine. Each section below plays on scroll — click any card to replay.</p>
+    </header>
+
+    <!-- ── 1. Text Reveal ── -->
+    <section class="gallery-section" data-section="text-reveal">
+      <div class="section-meta">
+        <div class="eyebrow">01 · Text Reveal</div>
+        <h2>Title coalesces from particles</h2>
+        <p>Particles assemble into the word shape, then hand off to a crisp <code>&lt;h1&gt;</code>. The canvas fades out; the DOM element fades in — screen readers see live text throughout.</p>
+      </div>
+      <div class="canvas-card" id="card-text-reveal">
+        <canvas id="canvas-text-reveal" aria-hidden="true"></canvas>
+        <div class="card-overlay">
+          <h3 id="h-text-reveal">Emerge</h3>
+        </div>
+        <span class="replay-hint">↺ click to replay</span>
+      </div>
+      <p class="replay-note">Scrolls into view → plays · click to replay</p>
+    </section>
+
+    <!-- ── 2. Cover Reveal ── -->
+    <section class="gallery-section" data-section="cover-reveal">
+      <div class="section-meta">
+        <div class="eyebrow">02 · Cover Reveal</div>
+        <h2>Wordmark + tagline entrance</h2>
+        <p>The wordmark forms from particles first, then the tagline fades in beneath it — sequenced, not simultaneous.</p>
+      </div>
+      <div class="canvas-card" id="card-cover-reveal">
+        <canvas id="canvas-cover-reveal" aria-hidden="true"></canvas>
+        <div class="card-overlay">
+          <h3 id="h-cover-wordmark">inkmote</h3>
+          <span class="tagline" id="h-cover-tagline">particles, precisely</span>
+        </div>
+        <span class="replay-hint">↺ click to replay</span>
+      </div>
+      <p class="replay-note">Scrolls into view → plays · click to replay</p>
+    </section>
+
+    <!-- ── 3. Stat Reveal ── -->
+    <section class="gallery-section" data-section="stat-reveal">
+      <div class="section-meta">
+        <div class="eyebrow">03 · Stat Reveal</div>
+        <h2>Numbers that count up after assembly</h2>
+        <p>Particles build the numeral shape; once settled, the DOM counter counts up with an ease-out curve. <code>countUp: true</code> opt-in.</p>
+      </div>
+      <div class="canvas-card" id="card-stat-reveal">
+        <canvas id="canvas-stat-reveal" aria-hidden="true"></canvas>
+        <div class="card-overlay">
+          <div class="stat-num" id="el-stat-reveal">95%</div>
+        </div>
+        <span class="replay-hint">↺ click to replay</span>
+      </div>
+      <p class="replay-note">Scrolls into view → plays · click to replay</p>
+    </section>
+
+    <!-- ── 4. Scene Morph ── -->
+    <section class="gallery-section" data-section="scene-morph">
+      <div class="section-meta">
+        <div class="eyebrow">04 · Scene Morph</div>
+        <h2>Particles persist across formations</h2>
+        <p>The same particle field transitions between two text formations continuously. No flicker, no despawn — each particle flows to its new position.</p>
+      </div>
+      <div class="canvas-card" id="card-scene-morph">
+        <canvas id="canvas-scene-morph" aria-hidden="true"></canvas>
+        <span class="replay-hint">↺ click to replay</span>
+      </div>
+      <p class="replay-note">Scrolls into view → plays · click to replay</p>
+    </section>
+
+    <!-- ── 5. Image Reveal ── -->
+    <section class="gallery-section" data-section="image-reveal">
+      <div class="section-meta">
+        <div class="eyebrow">05 · Image Reveal</div>
+        <h2>Any image → particle formation</h2>
+        <p>Pass any <code>CanvasImageSource</code> — the engine samples pixel luminance and assembles a particle field matching the image's tonal structure.</p>
+      </div>
+      <div class="canvas-card" id="card-image-reveal">
+        <canvas id="canvas-image-reveal" aria-label="A bold ring emblem assembled from ink particles" role="img"></canvas>
+        <span class="replay-hint">↺ click to replay</span>
+      </div>
+      <p class="replay-note">Scrolls into view → plays · click to replay</p>
+    </section>
+
+    <!-- ── 6. Shapes ── -->
+    <section class="gallery-section" data-section="shapes">
+      <div class="section-meta">
+        <div class="eyebrow">06 · Particle Shapes</div>
+        <h2>Square · Round · Soft</h2>
+        <p>The same formation rendered with three particle renderers. <code>square</code> is crisp pixel-art energy; <code>round</code> is classic; <code>soft</code> feathers the edges for a watercolor feel.</p>
+      </div>
+      <div class="shapes-row">
+        <div class="canvas-card shape-card" id="card-shape-square">
+          <canvas id="canvas-shape-square" aria-hidden="true"></canvas>
+          <span class="shape-label">square</span>
+          <span class="replay-hint">↺</span>
+        </div>
+        <div class="canvas-card shape-card" id="card-shape-round">
+          <canvas id="canvas-shape-round" aria-hidden="true"></canvas>
+          <span class="shape-label">round</span>
+          <span class="replay-hint">↺</span>
+        </div>
+        <div class="canvas-card shape-card" id="card-shape-soft">
+          <canvas id="canvas-shape-soft" aria-hidden="true"></canvas>
+          <span class="shape-label">soft</span>
+          <span class="replay-hint">↺</span>
+        </div>
+      </div>
+      <p class="replay-note">Scrolls into view → plays · click to replay</p>
+    </section>
+
+    <script src="../dist/index.global.js"></script>
+    <script>
+      (function () {
+        var Inkmote = window.Inkmote;
+
+        // ── shared config ──────────────────────────────────────────────────────
+        var N = 6000;
+        var FONT_LARGE = '800 11vw ui-sans-serif, system-ui, sans-serif';
+        var FONT_COVER = '800 9vw ui-sans-serif, system-ui, sans-serif';
+        var FONT_STAT  = '800 14vw ui-sans-serif, system-ui, sans-serif';
+        var FONT_SHAPE = '800 48vmin ui-sans-serif, system-ui, sans-serif';
+
+        // Prefers-reduced-motion — library falls back to static; we skip JS anim too
+        var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // ── stage registry ─────────────────────────────────────────────────────
+        // Each entry: { play: fn, stage: InkStage|null }
+        var registry = {};
+
+        function register(id, playfn) {
+          registry[id] = { play: playfn, stage: null };
+        }
+
+        // ── emblem helper (no binary assets) ──────────────────────────────────
+        function makeEmblem() {
+          var em = document.createElement('canvas');
+          em.width = 512; em.height = 512;
+          var ec = em.getContext('2d');
+          if (ec) {
+            ec.fillStyle = '#f4f3ee';
+            ec.fillRect(0, 0, 512, 512);
+            // outer ring
+            ec.beginPath();
+            ec.arc(256, 256, 200, 0, Math.PI * 2);
+            ec.strokeStyle = '#11131a';
+            ec.lineWidth = 36;
+            ec.stroke();
+            // inner filled circle
+            ec.beginPath();
+            ec.arc(256, 256, 90, 0, Math.PI * 2);
+            ec.fillStyle = '#11131a';
+            ec.fill();
+          }
+          return em;
+        }
+
+        // ── 1. Text reveal ────────────────────────────────────────────────────
+        function playTextReveal() {
+          var canvas = document.getElementById('canvas-text-reveal');
+          var h3 = document.getElementById('h-text-reveal');
+          // Reset
+          h3.style.opacity = '0';
+          canvas.style.opacity = '1';
+
+          var entry = registry['text-reveal'];
+          if (entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
+
+          entry.stage = Inkmote.textReveal(canvas, h3, {
+            text: 'Emerge',
+            font: FONT_LARGE,
+            n: N,
+            seed: 7,
+          });
+        }
+        register('text-reveal', playTextReveal);
+
+        // ── 2. Cover reveal ───────────────────────────────────────────────────
+        function playCoverReveal() {
+          var canvas = document.getElementById('canvas-cover-reveal');
+          var wordmark = document.getElementById('h-cover-wordmark');
+          var tagline  = document.getElementById('h-cover-tagline');
+          // Reset
+          wordmark.style.opacity = '0';
+          tagline.style.opacity  = '0';
+          canvas.style.opacity   = '1';
+
+          var entry = registry['cover-reveal'];
+          if (entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
+
+          entry.stage = Inkmote.coverReveal(canvas, {
+            wordmark: wordmark,
+            tagline:  tagline,
+            n: N,
+            seed: 13,
+          });
+        }
+        register('cover-reveal', playCoverReveal);
+
+        // ── 3. Stat reveal ────────────────────────────────────────────────────
+        function playStatReveal() {
+          var canvas = document.getElementById('canvas-stat-reveal');
+          var el     = document.getElementById('el-stat-reveal');
+          // Reset
+          el.style.opacity   = '0';
+          canvas.style.opacity = '1';
+          el.textContent = '95%';
+
+          var entry = registry['stat-reveal'];
+          if (entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
+
+          entry.stage = Inkmote.statReveal(canvas, el, {
+            value: '95%',
+            font: FONT_STAT,
+            n: N,
+            seed: 11,
+            countUp: true,
+          });
+        }
+        register('stat-reveal', playStatReveal);
+
+        // ── 4. Scene morph ────────────────────────────────────────────────────
+        var ptsIdea   = null;
+        var ptsImpact = null;
+
+        function buildMorphPts() {
+          if (ptsIdea) return; // already built
+          var rngA = Inkmote.createRng(41);
+          var rngB = Inkmote.createRng(42);
+          ptsIdea   = Inkmote.fromText('idea',   N, { font: FONT_LARGE, levels: 24 }, rngA);
+          ptsImpact = Inkmote.fromText('impact', N, { font: FONT_LARGE, levels: 24 }, rngB);
+        }
+
+        function playSceneMorph() {
+          buildMorphPts();
+          var canvas = document.getElementById('canvas-scene-morph');
+
+          var entry = registry['scene-morph'];
+          if (entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
+
+          entry.stage = Inkmote.sceneMorph(canvas, {
+            from: ptsIdea,
+            to:   ptsImpact,
+            n: N,
+            seed: 42,
+          });
+        }
+        register('scene-morph', playSceneMorph);
+
+        // ── 5. Image reveal ───────────────────────────────────────────────────
+        var emblem = null;
+
+        function playImageReveal() {
+          if (!emblem) emblem = makeEmblem();
+          var canvas = document.getElementById('canvas-image-reveal');
+
+          var entry = registry['image-reveal'];
+          if (entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
+
+          entry.stage = Inkmote.imageReveal(canvas, emblem, {
+            n: N,
+            seed: 3,
+            alt: 'A bold ring emblem assembled from ink particles',
+          });
+        }
+        register('image-reveal', playImageReveal);
+
+        // ── 6. Shapes ─────────────────────────────────────────────────────────
+        var ptsShape = null;
+
+        function buildShapePts() {
+          if (ptsShape) return;
+          var rng = Inkmote.createRng(99);
+          ptsShape = Inkmote.fromText('•', N, { font: FONT_SHAPE, levels: 24 }, rng);
+        }
+
+        function playShape(which) {
+          buildShapePts();
+          var canvas = document.getElementById('canvas-shape-' + which);
+          var key = 'shape-' + which;
+
+          var entry = registry[key];
+          if (entry && entry.stage) { try { entry.stage.destroy(); } catch (_) {} }
+
+          var cloud = makeCloud(N, 5 + which.length);
+          var st = Inkmote.sceneMorph(canvas, {
+            from:  cloud,
+            to:    ptsShape,
+            n:     N,
+            seed:  20,
+            shape: which,
+          });
+          registry[key] = { play: function () { playShape(which); }, stage: st };
+        }
+
+        register('shape-square', function () { playShape('square'); });
+        register('shape-round',  function () { playShape('round'); });
+        register('shape-soft',   function () { playShape('soft'); });
+
+        function makeCloud(n, seed) {
+          var rng = Inkmote.createRng(seed);
+          return Array.from({ length: n }, function () {
+            return { x: rng() - 0.5, y: rng() - 0.5, lvl: Math.floor(rng() * 24) };
+          });
+        }
+
+        // ── IntersectionObserver ───────────────────────────────────────────────
+        // Each .gallery-section plays its animation when scrolled into view (≥20%).
+        // Shapes section triggers all three sub-cards together.
+        var sectionMap = {
+          'text-reveal':  ['text-reveal'],
+          'cover-reveal': ['cover-reveal'],
+          'stat-reveal':  ['stat-reveal'],
+          'scene-morph':  ['scene-morph'],
+          'image-reveal': ['image-reveal'],
+          'shapes':       ['shape-square', 'shape-round', 'shape-soft'],
+        };
+
+        function playSection(sectionId) {
+          var keys = sectionMap[sectionId];
+          if (!keys) return;
+          keys.forEach(function (k) {
+            var entry = registry[k];
+            if (entry) entry.play();
+          });
+        }
+
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              var id = entry.target.getAttribute('data-section');
+              playSection(id);
+              // Unobserve after first trigger so scrolling back doesn't re-trigger.
+              // Click-to-replay handles re-runs.
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.20 });
+
+        document.querySelectorAll('.gallery-section[data-section]').forEach(function (el) {
+          observer.observe(el);
+        });
+
+        // ── Click-to-replay ────────────────────────────────────────────────────
+        document.querySelectorAll('.canvas-card').forEach(function (card) {
+          card.addEventListener('click', function () {
+            var section = card.closest('.gallery-section');
+            if (!section) return;
+            var id = section.getAttribute('data-section');
+            playSection(id);
+          });
+        });
+
+        // ── Boot: fonts ready before first fromText calls ─────────────────────
+        document.fonts.ready.then(function () {
+          // Pre-build morph/shape formations so first scroll is snappy
+          buildMorphPts();
+          buildShapePts();
+        });
+
+      })();
+    </script>
+  </body>
+</html>

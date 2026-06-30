@@ -77,6 +77,31 @@
         opacity: 0.7;
         max-width: 36ch;
       }
+      /* Eyebrow label for morph slide — anchored top-left, away from particle centre. */
+      .slide-eyebrow {
+        position: absolute;
+        top: 2rem;
+        left: 2rem;
+        font-size: clamp(0.75rem, 1.5vw, 1rem);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        opacity: 0.4;
+        z-index: 1;
+        pointer-events: none;
+      }
+      /* Image slide caption — anchored bottom centre, clear of the particle field. */
+      .caption-bottom {
+        position: absolute;
+        bottom: 2rem;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: clamp(0.75rem, 1.5vw, 1rem);
+        opacity: 0.55;
+        z-index: 1;
+        pointer-events: none;
+      }
       .hint {
         position: fixed;
         bottom: 1rem;
@@ -114,11 +139,12 @@
         <h1 data-ink="title">Ink in Motion</h1>
       </section>
 
-      <!-- Slide 1: section transition — sceneMorph between cover dust and stat dust -->
+      <!-- Slide 1: section transition — sceneMorph between cover dust and stat dust
+           The particle field IS the content here. The eyebrow label sits at top-left,
+           well away from the particle centre, so there is no overlap. -->
       <section class="slide" id="slide-transition">
         <canvas class="ink-live" aria-hidden="true"></canvas>
-        <h1 data-ink="title">From idea to impact</h1>
-        <p class="caption">A field of particles morphs between scenes.</p>
+        <p class="slide-eyebrow">idea → impact</p>
       </section>
 
       <!-- Slide 2: body — big stat -->
@@ -136,7 +162,7 @@
       <section class="slide" id="slide-image">
         <!-- canvas aria-label set by imageReveal when alt is provided -->
         <canvas class="ink-live"></canvas>
-        <p class="caption" style="margin-top:0;margin-bottom:1rem;opacity:0.55;font-size:clamp(0.75rem,1.5vw,1rem);">Any image → particles</p>
+        <p class="caption-bottom">Any image → particles</p>
       </section>
     </main>
 
