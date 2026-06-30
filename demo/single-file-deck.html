@@ -145,10 +145,10 @@
         var idx = 0;
 
         // Seeded formations shared by the morph slide (deterministic — spec §8).
-        var rngFrom = Inkmote.createRng(7);
-        var rngTo = Inkmote.createRng(42);
-        var ptsFrom = Inkmote.fromText("idea", N, { font: FONT, levels: 24 }, rngFrom);
-        var ptsTo = Inkmote.fromText("impact", N, { font: FONT, levels: 24 }, rngTo);
+        // Declared here so buildStages() can reference them; assigned inside
+        // document.fonts.ready.then() so the web font is loaded before sampling.
+        var ptsFrom;
+        var ptsTo;
 
         // One InkStage per slide, each bound to the same shared canvas.
         var stages = [];
@@ -214,6 +214,11 @@
 
         // Fonts: canvas text sampling must await document.fonts.ready (spec §8).
         document.fonts.ready.then(function () {
+          // Sample formations after fonts load so glyph geometry is deterministic.
+          var rngFrom = Inkmote.createRng(41);
+          var rngTo   = Inkmote.createRng(42);
+          ptsFrom = Inkmote.fromText("idea",   N, { font: FONT, levels: 24 }, rngFrom);
+          ptsTo   = Inkmote.fromText("impact", N, { font: FONT, levels: 24 }, rngTo);
           buildStages();
           show(0);
         });
