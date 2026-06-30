@@ -51,6 +51,11 @@ export type TiltOpts = {
   staticYaw?: number;
   /** Fixed oblique pitch used in static mode. Default 0.06. */
   staticPitch?: number;
+  /**
+   * Depth amplitude for coherent z-field applied to particle formations (normalized units).
+   * Default 0.22 — visible volume, tasteful. Components read this when building formations.
+   */
+  amplitude?: number;
 };
 
 function defaultEnv(): StageEnv {
@@ -82,6 +87,7 @@ export function createInkStage(
     autoDrift: (tiltInput as TiltOpts | undefined)?.autoDrift ?? 0.0003,
     staticYaw: (tiltInput as TiltOpts | undefined)?.staticYaw ?? 0.12,
     staticPitch: (tiltInput as TiltOpts | undefined)?.staticPitch ?? 0.06,
+    amplitude: (tiltInput as TiltOpts | undefined)?.amplitude ?? 0.22,
   };
 
   let rafId = 0;

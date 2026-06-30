@@ -3,10 +3,13 @@ import { createRng } from '../engine/rng';
 import { fromText } from '../engine/formations';
 import { createField } from '../engine/field';
 import { createPalette } from '../engine/palette';
-import { createInkStage, type InkStage } from '../stage/ink-stage';
+import { createInkStage, type InkStage, type TiltOpts } from '../stage/ink-stage';
+import { withDepth } from '../engine/depth';
 import type { ParticleShape } from '../engine/renderer';
 
-export type TextRevealOpts = { text: string; font?: string; n?: number; seed?: number; shape?: ParticleShape; onSettle?: () => void };
+export type TextRevealOpts = { text: string; font?: string; n?: number; seed?: number; shape?: ParticleShape; onSettle?: () => void; tilt?: TiltOpts | false };
+
+const DEFAULT_DEPTH_AMPLITUDE = 0.22;
 
 function dispersed(n: number, rng: Rng): Pt[] {
   return Array.from({ length: n }, () => ({
@@ -25,9 +28,16 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
   const palette = createPalette([244, 243, 238], [17, 19, 24], 24);
 
   const field = createField(n, rng);
+
+  // Tilt is on by default (matches createInkStage default).
+  const tiltInput = opts.tilt;
+  const tiltEnabled = tiltInput !== false && (tiltInput as TiltOpts | undefined)?.depth !== false;
+  const amplitude = (tiltInput as TiltOpts | undefined)?.amplitude ?? DEFAULT_DEPTH_AMPLITUDE;
+
   // Seed both formations with the dispersed cloud so the field is valid
   // before fonts.ready resolves; the text formation overwrites once sampled.
-  const cloud = dispersed(n, rng);
+  const rawCloud = dispersed(n, rng);
+  const cloud = tiltEnabled ? withDepth(rawCloud, amplitude) : rawCloud;
   field.setFormation('dispersed', cloud);
   field.setFormation('text', cloud);
 
@@ -36,11 +46,12 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
   h1.style.transition = 'opacity 600ms ease';
   canvas.style.transition = 'opacity 600ms ease';
 
-  const stage = createInkStage(canvas, field, palette, { shape: opts.shape });
+  const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: tiltInput });
 
   void (async () => {
     await document.fonts.ready;
-    const text = fromText(opts.text, n, { font, levels: 24 }, rng);
+    const rawText = fromText(opts.text, n, { font, levels: 24 }, rng);
+    const text = tiltEnabled ? withDepth(rawText, amplitude) : rawText;
     field.setFormation('text', text);
     // Drive the particle coalesce animation; hand off to native h1 only after settle.
     stage.morph('dispersed', 'text', {

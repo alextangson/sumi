@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { coherentDepth, project3d } from '../src/engine/depth';
+import { coherentDepth, project3d, withDepth } from '../src/engine/depth';
+import { createField } from '../src/engine/field';
+import type { Pt } from '../src/types';
 
 describe('coherentDepth', () => {
   it('is deterministic: same (x, y, amplitude) always returns same value', () => {
@@ -97,5 +99,68 @@ describe('project3d', () => {
     expect(a.x).toBe(b.x);
     expect(a.y).toBe(b.y);
     expect(a.scale).toBe(b.scale);
+  });
+});
+
+describe('withDepth', () => {
+  it('returns a new array without mutating input', () => {
+    const pts: Pt[] = [{ x: 0.1, y: 0.2, lvl: 0 }];
+    const result = withDepth(pts, 0.22);
+    expect(result).not.toBe(pts);
+    expect(pts[0].z).toBeUndefined();
+  });
+
+  it('gives each point a nonzero z derived from its position', () => {
+    const pts = [
+      { x: 0.1, y: 0.2, lvl: 0 },
+      { x: -0.3, y: 0.4, lvl: 1 },
+    ];
+    const result = withDepth(pts, 0.22);
+    expect(result[0].z).toBeDefined();
+    expect(result[1].z).toBeDefined();
+    // Two different positions must produce different z values
+    expect(result[0].z).not.toBeCloseTo(result[1].z as number, 5);
+  });
+
+  it('z is position-coherent: same (x,y) always yields same z', () => {
+    const pts = [{ x: 0.15, y: -0.1, lvl: 2 }];
+    const r1 = withDepth(pts, 0.22);
+    const r2 = withDepth(pts, 0.22);
+    expect(r1[0].z).toBe(r2[0].z);
+  });
+
+  it('preserves x, y, lvl on each point', () => {
+    const pts = [{ x: 0.3, y: -0.2, lvl: 7 }];
+    const [out] = withDepth(pts, 0.22);
+    expect(out.x).toBe(0.3);
+    expect(out.y).toBe(-0.2);
+    expect(out.lvl).toBe(7);
+  });
+
+  it('z=0 when amplitude=0', () => {
+    const pts = [{ x: 0.2, y: 0.3, lvl: 0 }];
+    const [out] = withDepth(pts, 0);
+    expect(out.z).toBe(0);
+  });
+
+  it('field step interpolates z between two withDepth formations', () => {
+    // Build two tiny formations via withDepth, step at m=0/0.5/1, assert z interpolates.
+    const a = withDepth([{ x: -0.2, y: 0.1, lvl: 0 }], 0.22);
+    const b = withDepth([{ x: 0.3, y: -0.1, lvl: 2 }], 0.22);
+    const field = createField(1, () => 0.5);
+    field.setFormation('a', a);
+    field.setFormation('b', b);
+
+    const zA = a[0].z ?? 0;
+    const zB = b[0].z ?? 0;
+
+    field.step({ from: 'a', to: 'b', m: 0 });
+    expect(field.particles[0].z).toBeCloseTo(zA, 10);
+
+    field.step({ from: 'a', to: 'b', m: 1 });
+    expect(field.particles[0].z).toBeCloseTo(zB, 10);
+
+    field.step({ from: 'a', to: 'b', m: 0.5 });
+    expect(field.particles[0].z).toBeCloseTo((zA + zB) / 2, 10);
   });
 });

@@ -54,6 +54,7 @@ export function createField(n: number, rng: Rng): Field {
         const t = particleT(m, stagger, i, n);
         p.x = a.x + (b.x - a.x) * t;
         p.y = a.y + (b.y - a.y) * t;
+        p.z = (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * t;
         p.lvl = b.lvl;
       }
     },

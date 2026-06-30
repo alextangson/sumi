@@ -21,6 +21,17 @@ export function coherentDepth(x: number, y: number, amplitude: number): number {
   );
 }
 
+import type { Pt } from '../types';
+
+/**
+ * Return a new array of points with `z` populated via coherentDepth.
+ * Pure and deterministic — same input always yields same output.
+ * x/y/lvl are preserved unchanged.
+ */
+export function withDepth(pts: Pt[], amplitude: number): Pt[] {
+  return pts.map((p) => ({ ...p, z: coherentDepth(p.x, p.y, amplitude) }));
+}
+
 export type ProjectionResult = { x: number; y: number; scale: number };
 
 /**
