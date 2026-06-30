@@ -4,8 +4,9 @@ import { fromText } from '../engine/formations';
 import { createField } from '../engine/field';
 import { createPalette } from '../engine/palette';
 import { createInkStage, type InkStage } from '../stage/ink-stage';
+import type { ParticleShape } from '../engine/renderer';
 
-export type TextRevealOpts = { text: string; font?: string; n?: number; seed?: number };
+export type TextRevealOpts = { text: string; font?: string; n?: number; seed?: number; shape?: ParticleShape };
 
 function dispersed(n: number, rng: Rng): Pt[] {
   return Array.from({ length: n }, () => ({
@@ -35,7 +36,7 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
   h1.style.transition = 'opacity 600ms ease';
   canvas.style.transition = 'opacity 600ms ease';
 
-  const stage = createInkStage(canvas, field, palette);
+  const stage = createInkStage(canvas, field, palette, { shape: opts.shape });
 
   void (async () => {
     await document.fonts.ready;

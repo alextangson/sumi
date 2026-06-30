@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { bucketize, draw, type Ctx2D } from '../src/engine/renderer';
+import { bucketize, draw, type Ctx2D, type ParticleShape } from '../src/engine/renderer';
 import type { Particle, Field } from '../src/engine/field';
 import type { Palette } from '../src/engine/palette';
 import type { Rect } from '../src/types';
 
-// Recording fake 2D context: logs fillStyle assignments and fillRect calls.
+// Recording fake 2D context: logs fillStyle assignments, fillRect and drawImage calls.
 function makeRecordingCtx() {
   const fillStyleLog: string[] = [];
   const fillRectLog: Array<[number, number, number, number]> = [];
+  const drawImageLog: Array<[unknown, number, number]> = [];
   let clearRectCalls = 0;
   const ctx = {
     _fillStyle: '',
@@ -24,10 +25,13 @@ function makeRecordingCtx() {
     fillRect(x: number, y: number, w: number, h: number) {
       fillRectLog.push([x, y, w, h]);
     },
+    drawImage(image: unknown, dx: number, dy: number) {
+      drawImageLog.push([image, dx, dy]);
+    },
   } as Ctx2D & {
     _fillStyle: string;
   };
-  return { ctx, fillStyleLog, fillRectLog, getClearRectCalls: () => clearRectCalls };
+  return { ctx, fillStyleLog, fillRectLog, drawImageLog, getClearRectCalls: () => clearRectCalls };
 }
 
 function makeParticle(x: number, y: number, lvl: number): Particle {
@@ -47,6 +51,12 @@ function makeField(): Field {
     setFormation() {},
     step() {},
   };
+}
+
+// Stub sprite array: one HTMLCanvasElement per level (2 levels).
+// We use plain objects — draw only calls drawImage(sprite, x, y) on them.
+function makeStubSprites(levels: number): HTMLCanvasElement[] {
+  return Array.from({ length: levels }, () => ({}) as HTMLCanvasElement);
 }
 
 describe('bucketize', () => {
@@ -103,5 +113,53 @@ describe('draw', () => {
     // lvl 0 size = 2, scaled by dpr 2 => 4
     expect(w).toBe(palette.sizes[0] * dpr);
     expect(h).toBe(palette.sizes[0] * dpr);
+  });
+
+  describe('shape dispatch', () => {
+    it('square: uses fillRect, no drawImage', () => {
+      const { ctx, fillRectLog, drawImageLog } = makeRecordingCtx();
+      const field = makeField();
+      draw(ctx, field, palette, rect, 1, 'square');
+      expect(fillRectLog.length).toBe(field.n);
+      expect(drawImageLog.length).toBe(0);
+    });
+
+    it('round with sprites: uses drawImage, no fillRect', () => {
+      const { ctx, fillRectLog, drawImageLog } = makeRecordingCtx();
+      const field = makeField();
+      const sprites = makeStubSprites(palette.levels);
+      draw(ctx, field, palette, rect, 1, 'round', sprites);
+      expect(drawImageLog.length).toBe(field.n);
+      expect(fillRectLog.length).toBe(0);
+    });
+
+    it('soft with sprites: uses drawImage, no fillRect', () => {
+      const { ctx, fillRectLog, drawImageLog } = makeRecordingCtx();
+      const field = makeField();
+      const sprites = makeStubSprites(palette.levels);
+      draw(ctx, field, palette, rect, 1, 'soft', sprites);
+      expect(drawImageLog.length).toBe(field.n);
+      expect(fillRectLog.length).toBe(0);
+    });
+
+    it('round with empty sprites (jsdom fallback): falls back to fillRect', () => {
+      const { ctx, fillRectLog, drawImageLog } = makeRecordingCtx();
+      const field = makeField();
+      draw(ctx, field, palette, rect, 1, 'round', []);
+      // No sprites → fallback to square path
+      expect(fillRectLog.length).toBe(field.n);
+      expect(drawImageLog.length).toBe(0);
+    });
+
+    it('drawImage receives the correct sprite for each particle level', () => {
+      const { ctx, drawImageLog } = makeRecordingCtx();
+      const field = makeField();
+      const sprites = makeStubSprites(palette.levels);
+      draw(ctx, field, palette, rect, 1, 'round', sprites);
+      // After bucketize: lvl order is [0, 1, 1]
+      expect(drawImageLog[0][0]).toBe(sprites[0]);
+      expect(drawImageLog[1][0]).toBe(sprites[1]);
+      expect(drawImageLog[2][0]).toBe(sprites[1]);
+    });
   });
 });

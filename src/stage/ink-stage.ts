@@ -2,7 +2,7 @@ import type { Rect } from '../types';
 import type { Field } from '../engine/field';
 import type { Palette } from '../engine/palette';
 import { easeInOut } from '../engine/choreography';
-import { draw } from '../engine/renderer';
+import { draw, buildSprites, type ParticleShape } from '../engine/renderer';
 import { mapNormalizedToRect } from './map';
 
 export type StageEnv = { reducedMotion: boolean; mobile: boolean; printing: boolean };
@@ -27,13 +27,16 @@ export function createInkStage(
   canvas: HTMLCanvasElement,
   field: Field,
   palette: Palette,
-  opts?: { mode?: StageMode; env?: StageEnv },
+  opts?: { mode?: StageMode; env?: StageEnv; shape?: ParticleShape },
 ): InkStage {
   const mode: StageMode = opts?.mode ?? 'auto';
   const env: StageEnv = opts?.env ?? defaultEnv();
+  const shape: ParticleShape = opts?.shape ?? 'square';
 
   let rafId = 0;
   const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
+  // Build sprite cache once per stage (not per frame)
+  const sprites = buildSprites(palette, shape, dpr);
 
   function isStatic(): boolean {
     return (
@@ -46,7 +49,7 @@ export function createInkStage(
     // Settle particles at their current target formation and draw a static frame.
     // Used by beforeprint handlers to render each slide's ink state to its own canvas.
     const ctx = canvas.getContext('2d') as unknown as Parameters<typeof draw>[0] | null;
-    if (ctx) draw(ctx, field, palette, rect, dpr);
+    if (ctx) draw(ctx, field, palette, rect, dpr, shape, sprites);
   }
 
   function fullRect(): Rect {
@@ -66,7 +69,7 @@ export function createInkStage(
 
     if (isStatic()) {
       field.step({ from, to, m: 1, stagger });
-      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr);
+      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites);
       opts?.onSettle?.();
       return;
     }
@@ -82,7 +85,7 @@ export function createInkStage(
       if (start < 0) start = time;
       const m = easeInOut(Math.min(1, (time - start) / durationMs));
       field.step({ from, to, m, stagger });
-      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr);
+      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites);
       if (m >= 1) {
         rafId = 0;
         opts?.onSettle?.();

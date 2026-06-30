@@ -138,6 +138,11 @@
         var N = 8000; // fixed global particle count (spec: tier 'normal')
         var FONT = "800 12vw ui-sans-serif, system-ui, sans-serif";
 
+        // A/B shape hook: ?shape=round|soft|square (default: 'square')
+        var shapeParam = new URLSearchParams(window.location.search).get('shape');
+        var SHAPE = (shapeParam === 'round' || shapeParam === 'soft' || shapeParam === 'square')
+          ? shapeParam : undefined;
+
         var canvas = document.getElementById("ink");
         var slides = Array.prototype.slice.call(
           document.querySelectorAll("section.slide")
@@ -165,6 +170,7 @@
             font: FONT,
             n: N,
             seed: 7,
+            shape: SHAPE,
           });
 
           // Slide 1: morph between the two seeded formations.
@@ -173,6 +179,7 @@
             to: ptsTo,
             n: N,
             seed: 42,
+            shape: SHAPE,
           });
 
           // Slide 2: stat number forms from particles, hands off to real text.
@@ -182,6 +189,7 @@
             font: FONT,
             n: N,
             seed: 11,
+            shape: SHAPE,
           });
         }
 
