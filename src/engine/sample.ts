@@ -1,5 +1,18 @@
-import type { PixelBuffer, WeightedPt } from '../types';
+import type { PixelBuffer, Rect, WeightedPt } from '../types';
 import { levelOf } from './palette';
+
+/**
+ * Compute a contain-fit destination rect for `srcW × srcH` inside a `boxW × boxH` box.
+ * The result is centered; non-covered area is left as background (paper).
+ */
+export function containRect(srcW: number, srcH: number, boxW: number, boxH: number): Rect {
+  const scale = Math.min(boxW / srcW, boxH / srcH);
+  const w = srcW * scale;
+  const h = srcH * scale;
+  const x = (boxW - w) / 2;
+  const y = (boxH - h) / 2;
+  return { x, y, w, h };
+}
 
 export type SampleOpts = { step?: number; minInk?: number; gamma?: number; levels: number };
 

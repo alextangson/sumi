@@ -126,6 +126,16 @@
         <p class="caption">of the bundle is core engine, not chrome.</p>
         <canvas class="print-frame" aria-hidden="true"></canvas>
       </section>
+
+      <!-- Slide 3: image → particles demo.
+           Uses an offscreen canvas as the source image so the demo is
+           fully self-contained (no binary assets, no network).
+           In a real workflow, swap `emblемCanvas` for any AI-generated
+           HTMLImageElement — the result is identical. -->
+      <section class="slide" id="slide-image">
+        <p class="caption" style="margin-top:0;margin-bottom:1rem;opacity:0.55;font-size:clamp(0.75rem,1.5vw,1rem);">Any image → particles</p>
+        <canvas class="print-frame" aria-hidden="true"></canvas>
+      </section>
     </main>
 
     <div class="hint">← / → to navigate · ⌘P to print (static frames)</div>
@@ -190,6 +200,37 @@
             n: N,
             seed: 11,
             shape: SHAPE,
+          });
+
+          // Slide 3: image → particles.
+          // Build a high-contrast emblem on an offscreen canvas so the demo needs
+          // no binary assets. A real workflow would pass an HTMLImageElement here —
+          // e.g. an AI-generated photo — identically.
+          var emblem = document.createElement('canvas');
+          emblem.width = 512;
+          emblem.height = 512;
+          var ec = emblem.getContext('2d');
+          if (ec) {
+            // Paper background
+            ec.fillStyle = '#f4f3ee';
+            ec.fillRect(0, 0, 512, 512);
+            // Bold outer ring
+            ec.beginPath();
+            ec.arc(256, 256, 200, 0, Math.PI * 2);
+            ec.strokeStyle = '#11131A';
+            ec.lineWidth = 36;
+            ec.stroke();
+            // Filled inner circle
+            ec.beginPath();
+            ec.arc(256, 256, 100, 0, Math.PI * 2);
+            ec.fillStyle = '#11131A';
+            ec.fill();
+          }
+          stages[3] = Inkmote.imageReveal(canvas, emblem, {
+            n: N,
+            seed: 3,
+            shape: SHAPE,
+            alt: 'A bold ring emblem assembled from ink particles',
           });
         }
 

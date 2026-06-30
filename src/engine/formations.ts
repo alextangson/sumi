@@ -1,5 +1,5 @@
 import type { Pt, PixelBuffer, Rng } from '../types';
-import { samplePixelBuffer, type SampleOpts } from './sample';
+import { samplePixelBuffer, containRect, type SampleOpts } from './sample';
 import { resampleToN } from './resample';
 
 // Pure composition: darkness-weighted sample -> resample to exactly n points.
@@ -56,13 +56,24 @@ export function fromImage(
   opts: SampleOpts,
   rng: Rng,
 ): Pt[] {
+  const size = 1024;
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 1024;
-  const ctx = canvas.getContext('2d')!;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return fromImageData({ data: new Uint8ClampedArray(0), width: 0, height: 0 }, n, opts, rng);
   ctx.fillStyle = '#f4f3ee';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, size, size);
+  const srcW = (img as HTMLImageElement).naturalWidth
+    ?? (img as HTMLVideoElement).videoWidth
+    ?? (img as HTMLCanvasElement).width
+    ?? size;
+  const srcH = (img as HTMLImageElement).naturalHeight
+    ?? (img as HTMLVideoElement).videoHeight
+    ?? (img as HTMLCanvasElement).height
+    ?? size;
+  const fit = containRect(srcW || size, srcH || size, size, size);
+  ctx.drawImage(img, fit.x, fit.y, fit.w, fit.h);
   const buf = canvasToPixelBuffer(canvas, ctx);
   return fromImageData(buf, n, opts, rng);
 }
