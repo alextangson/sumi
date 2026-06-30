@@ -40,6 +40,11 @@ export function createField(n: number, rng: Rng): Field {
     },
     step(opts: { from: string; to: string; m: number; stagger?: number }): void {
       const { from, to, m, stagger = 0 } = opts;
+      if (n > 0) {
+        const probe = particles[0].targets;
+        if (!probe[from]) throw new Error(`step: formation "${from}" not set`);
+        if (!probe[to]) throw new Error(`step: formation "${to}" not set`);
+      }
       for (let i = 0; i < n; i++) {
         const p = particles[i];
         const a = p.targets[from];

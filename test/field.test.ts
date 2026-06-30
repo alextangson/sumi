@@ -78,4 +78,12 @@ describe('Field.step', () => {
     expect(field.particles[0].y).toBeCloseTo(0, 12);
     expect(field.particles[0].lvl).toBe(3);
   });
+
+  it('throws a clear error when a formation name is not set', () => {
+    const field = createField(2, constRng(0));
+    const pts = ptsOf(2, (i) => ({ x: i * 0.1, y: i * 0.2, lvl: i }));
+    field.setFormation('exists', pts);
+    expect(() => field.step({ from: 'missing', to: 'exists', m: 0.5 })).toThrow();
+    expect(() => field.step({ from: 'exists', to: 'missing', m: 0.5 })).toThrow();
+  });
 });
