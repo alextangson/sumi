@@ -3,3 +3,5 @@ dist/
 *.log
 .DS_Store
 .claude/
+# internal AI-planning scaffolding — kept local, not part of the published library
+docs/superpowers/

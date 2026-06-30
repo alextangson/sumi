@@ -1,18 +1,19 @@
 # sumi
 
-> Cinematic **ink sand-painting** particle layer for hero sections and decks — turn any image or text into a field of ink stipple that coalesces, morphs, and disperses. Zero dependencies.
+> Cinematic **ink sand-painting** particle layer for hero sections and decks — turn any image or text into a field of ink stipple that coalesces, morphs, disperses, and tilts in 3D to the cursor. Zero dependencies.
 
 ![sumi](docs/hero.png)
 
-`sumi` (墨) samples an image, word, SVG path, or procedural shape into thousands of ink-colored particles on a single `<canvas>`, then choreographs them between formations. It's built for the moments a deck or landing page wants to feel alive — a title that assembles from dust, a key number that punches in, an image that drifts into being — without pulling in a framework or a WebGL stack.
+`sumi` (墨) samples an image, word, SVG path, or procedural shape into thousands of ink-colored particles on a single `<canvas>`, then choreographs them between formations. Formations carry real depth, so the field reads as a solid that tilts to the cursor — perspective and rotation, still on plain canvas2d. It's built for the moments a deck or landing page wants to feel alive — a title that assembles from dust, a key number that punches in, an image that drifts into being — without pulling in a framework or a WebGL stack.
 
 ## Why sumi
 
-Four things no existing particle library ships together:
+Five things no existing particle library ships together:
 
 - **Image-sampled ink-stipple aesthetic** — warm-white paper, ink grains; not another twinkly tech-blue background.
-- **Formation-morph choreography** — the whole field morphs between named formations (text → image → shape) on a timeline, not just ambient drift.
-- **Zero-dependency, single-file canvas2d** — one `<script>`, no build, no WebGL, ~6 KB gzip. Drop it into any HTML deck or page.
+- **Formation-morph choreography** — the whole field morphs between named formations (text → image → shape → volumetric column) on a timeline, not just ambient drift.
+- **True-3D depth on canvas2d** — formations carry a `z` axis; the field projects in perspective and tilts to the cursor (a fixed oblique in static mode), reading as a rotating volumetric solid — no WebGL. On by default; `tilt: false` opts out.
+- **Zero-dependency, single-file canvas2d** — one `<script>`, no build, no WebGL, ~8 KB gzip. Drop it into any HTML deck or page.
 - **Reduced-motion / mobile static fallback baked in** — accessibility is the default, not a chore. Titles hand off to real, selectable `<h1>` text.
 
 ## Quickstart
@@ -51,6 +52,23 @@ img.src = 'your-ai-generated-image.png';
 
 `square` (crisp, pixel energy) · **`round`** (default — clean ink stipple) · `soft` (feathered, watercolor feel). Rendered via cached per-level sprites, so round/soft cost no more than squares.
 
+## 3D depth
+
+Persisting fields (`sceneMorph`, `imageReveal`, and the `column` / `fromPoints3d` forms) are volumetric by default: every particle carries a `z`, the field is projected in perspective, and it **tilts toward the cursor** — near grains darken and grow, far grains fade — so a flat silhouette reads as a rotating solid. `textReveal` stays flat, since it hands off to crisp DOM text.
+
+```js
+const rng = Sumi.createRng(303);
+// disperse a 3D cloud, then assemble it into a solid vertical cylinder
+const cloud = Array.from({ length: 8000 }, () => ({
+  x: (rng() - 0.5) * 0.7, y: (rng() - 0.5) * 0.7, z: (rng() - 0.5) * 0.5,
+  lvl: Math.floor(rng() * 24),
+}));
+const cylinder = Sumi.column(8000, { height: 0.72, radius: 0.18 }, rng);
+Sumi.sceneMorph(canvas, { from: cloud, to: cylinder, n: 8000, seed: 303 });
+```
+
+Opt out per component with `tilt: false`, or tune it: `tilt: { maxYaw, maxPitch, smoothing, staticYaw, staticPitch }`. Reduced-motion and mobile render a single fixed-oblique frame instead of tracking the cursor.
+
 ## API
 
 | Export | What |
@@ -60,11 +78,12 @@ img.src = 'your-ai-generated-image.png';
 | `sceneMorph(canvas, opts)` | morph the field between two formations (`from` → `to`) |
 | `coverReveal(canvas, opts)` | wordmark + tagline cover preset |
 | `statReveal(canvas, el, opts)` | a big number that assembles then counts up |
-| `fromText` / `fromImage` / `fromSVGPath` / `fromShape` | build a formation (`Pt[]`) from a source |
+| `fromText` / `fromImage` / `fromSVGPath` / `fromShape` | build a 2D formation (`Pt[]`) from a source |
+| `column(n, opts, rng)` / `fromPoints3d(pts3d, n, rng)` | build a **volumetric** formation — a solid cylinder (body of revolution), or resampled arbitrary 3D points (each carries `z`) |
 | `autoInit(root)` / `parseInkAttributes(root)` | declarative `data-ink-*` wiring |
 | `createRng(seed)` | seeded RNG — same seed → identical render |
 | `recommendedParticleCount({width, dpr})` | adaptive particle budget (capped at 15k) |
-| `InkStage` | `morph` / `snapshotFor` / `isStatic` / `destroy` — the runtime each component returns |
+| `InkStage` | `morph` / `snapshotFor` / `isStatic` / `destroy` — the runtime each component returns; drives the default 3D `tilt` (opt out with `tilt: false`) |
 
 Particle count, palette, shape, and seed are all configurable; the canvas is auto-sized to its CSS box (with resize handling).
 
@@ -81,7 +100,7 @@ npm test           # the deterministic engine test suite
 Then open:
 - **`playground/index.html`** — drop an image or type text, tune shape / count / seed live.
 - **`demo/gallery.html`** — a showcase of every component.
-- **`demo/single-file-deck.html`** — a self-contained particle deck (← / → to navigate, ⌘P to print).
+- **`demo/single-file-deck.html`** — a self-contained particle deck; opens directly by double-click, no build required (← / → to navigate, ⌘P to print).
 - **`skill/`** — an Agent Skill that teaches Claude (or any coding agent) to generate HTML decks in this style.
 
 > npm: the name `sumi` is taken on npm, so the published package will be scoped (e.g. `@alextangson/sumi`). For now, clone + build.

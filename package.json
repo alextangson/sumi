@@ -1,6 +1,6 @@
 {
   "name": "sumi",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Cinematic ink sand-painting particle layer for hero sections and decks — image/text → particles, zero dependencies.",
   "license": "MIT",
   "author": "Jiaxin Tang",

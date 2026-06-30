@@ -23,7 +23,7 @@ const N = recommendedParticleCount(); // auto-reads window.innerWidth + devicePi
 
 - **Color-bucket batching**: particles are sorted by level before drawing; each bucket is drawn with one `fillStyle` set, minimizing context switches.
 - **Sprite cache**: per-level bitmaps are rasterized once at stage creation (`buildSprites`), then `drawImage`-d per particle — no per-frame path construction.
-- **rAF pause**: the animation loop stops when the morph settles (`m >= 1`) and does not fire again until the next `morph()` call.
+- **rAF pause**: with 3D tilt disabled (or in reduced-motion / static mode) the animation loop stops when the morph settles (`m >= 1`) and does not fire again until the next `morph()` call. When tilt is on — the default for a persisting volumetric stage — a single lightweight idle rAF continues after settle to drive mouse look-around + bounded auto-drift; it pauses while the page is hidden and is cancelled by `destroy()`. Components that hand off to DOM (e.g. `textReveal` → `<h1>`) run flat (`tilt: false`), so they fully stop at settle.
 
 ## Reduced motion & mobile
 

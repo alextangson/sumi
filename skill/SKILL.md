@@ -61,6 +61,12 @@ slides need explicit JS calls via `statReveal` and `imageReveal`.
 **Particle moments belong on**: cover, section title slides, stat slides, image slides,
 and scene-morph transitions. NOT on body/content slides — that kills readability.
 
+**3D depth (default-on)**: persisting fields — `sceneMorph`, `imageReveal`, and the
+`Sumi.column(n, { height, radius }, rng)` / `fromPoints3d` volumetric forms — carry a `z`
+axis, project in perspective, and tilt toward the cursor. `textReveal` stays flat (it hands
+off to crisp DOM text). For a calm, presenter-driven deck pass `tilt: false`; keep it on for
+a more alive, kiosk-style piece. Use `column` for an abstract volumetric transition moment.
+
 ## Initialization pattern
 
 Wrap calls in `document.fonts.ready.then(...)` to coordinate font loading — especially

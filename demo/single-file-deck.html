@@ -187,8 +187,10 @@
 
     <div class="hint">← / → to navigate · ⌘P to print (static frames)</div>
 
-    <!-- Relative IIFE: opens by double-click, no server. Exposes window.Sumi. -->
-    <script src="../dist/index.global.js"></script>
+    <!-- Committed IIFE bundle: opens by double-click, no build, no server.
+         Points at skill/assets (tracked in git) — not dist/ (gitignored) — so a
+         fresh clone runs this deck without `npm run build`. Exposes window.Sumi. -->
+    <script src="../skill/assets/sumi.global.js"></script>
     <script>
       (function () {
         var Sumi = window.Sumi;
