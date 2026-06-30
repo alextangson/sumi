@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { fromImageData } from '../src/engine/formations';
+import { fromImageData, fromImage } from '../src/engine/formations';
 import { createRng } from '../src/engine/rng';
 import type { PixelBuffer, SampleOpts } from '../src/types';
 
@@ -47,5 +48,14 @@ describe('fromImageData', () => {
     const a = fromImageData(makeBuffer(4, 4, 2), 30, OPTS, createRng(1));
     const b = fromImageData(makeBuffer(4, 4, 2), 30, OPTS, createRng(2));
     expect(a).not.toEqual(b);
+  });
+});
+
+describe('fromImage (jsdom null-ctx fallback)', () => {
+  it('returns [] when canvas getContext returns null (jsdom)', () => {
+    // jsdom does not implement 2D canvas context, so getContext('2d') returns null.
+    const src = document.createElement('canvas');
+    const pts = fromImage(src, 100, { levels: 24 }, createRng(1));
+    expect(pts).toEqual([]);
   });
 });

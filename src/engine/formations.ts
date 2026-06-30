@@ -61,7 +61,7 @@ export function fromImage(
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return fromImageData({ data: new Uint8ClampedArray(0), width: 0, height: 0 }, n, opts, rng);
+  if (!ctx) return [];
   ctx.fillStyle = '#f4f3ee';
   ctx.fillRect(0, 0, size, size);
   const srcW = (img as HTMLImageElement).naturalWidth

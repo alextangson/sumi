@@ -18,20 +18,13 @@
         font-family: ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial,
           sans-serif;
       }
-      /* Shared full-bleed particle canvas: behind slides, never intercepts clicks. */
-      #ink {
-        position: fixed;
-        inset: 0;
-        z-index: 0;
-        pointer-events: none;
-      }
       .deck {
         position: relative;
         z-index: 1;
         height: 100vh;
       }
       /* Slides toggle by visibility/opacity, NOT display — off-screen slides keep
-         layout so canvas text sampling has real geometry. */
+         layout so clientWidth == viewport width (needed for canvas auto-sizing). */
       section.slide {
         position: fixed;
         inset: 0;
@@ -51,6 +44,20 @@
         visibility: visible;
         opacity: 1;
         pointer-events: auto;
+      }
+      /* Per-slide live canvas: full-bleed, behind slide text, never intercepts clicks. */
+      section.slide > canvas.ink-live {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+      }
+      /* Text content sits above the per-slide canvas. */
+      section.slide > *:not(canvas.ink-live) {
+        position: relative;
+        z-index: 1;
       }
       h1[data-ink="title"] {
         font-size: clamp(2.5rem, 9vw, 7rem);
@@ -78,7 +85,8 @@
         font-size: 0.8rem;
         opacity: 0.45;
       }
-      /* Print: every slide region prints its OWN static frame, not the live canvas. */
+      /* Print: every slide region prints its OWN static frame rendered into the
+         per-slide live canvas. Show all slides, hide nav hint. */
       @media print {
         section.slide {
           position: relative;
@@ -87,54 +95,48 @@
           page-break-after: always;
           height: 100vh;
         }
-        #ink {
+        /* Hide live canvases on print — legible DOM text is what prints. */
+        section.slide > canvas.ink-live {
           display: none;
         }
         .hint {
           display: none;
         }
-        .print-frame {
-          display: block;
-        }
-      }
-      .print-frame {
-        display: none;
       }
     </style>
   </head>
   <body>
-    <!-- Single shared canvas for all slides. aria-hidden per spec §8 (native text a11y). -->
-    <canvas id="ink" aria-hidden="true"></canvas>
-
     <main class="deck">
       <!-- Slide 0: cover — h1 forms via textReveal -->
       <section class="slide active" id="slide-cover">
+        <!-- Per-slide live canvas. aria-hidden set by textReveal component. -->
+        <canvas class="ink-live"></canvas>
         <h1 data-ink="title">Ink in Motion</h1>
-        <canvas class="print-frame" aria-hidden="true"></canvas>
       </section>
 
       <!-- Slide 1: section transition — sceneMorph between cover dust and stat dust -->
       <section class="slide" id="slide-transition">
+        <canvas class="ink-live" aria-hidden="true"></canvas>
         <h1 data-ink="title">From idea to impact</h1>
         <p class="caption">A field of particles morphs between scenes.</p>
-        <canvas class="print-frame" aria-hidden="true"></canvas>
       </section>
 
       <!-- Slide 2: body — big stat -->
       <section class="slide" id="slide-stat">
+        <canvas class="ink-live" aria-hidden="true"></canvas>
         <div data-ink="stat" data-value="95%">95%</div>
         <p class="caption">of the bundle is core engine, not chrome.</p>
-        <canvas class="print-frame" aria-hidden="true"></canvas>
       </section>
 
       <!-- Slide 3: image → particles demo.
            Uses an offscreen canvas as the source image so the demo is
            fully self-contained (no binary assets, no network).
-           In a real workflow, swap `emblемCanvas` for any AI-generated
+           In a real workflow, swap the emblem canvas for any AI-generated
            HTMLImageElement — the result is identical. -->
       <section class="slide" id="slide-image">
+        <!-- canvas aria-label set by imageReveal when alt is provided -->
+        <canvas class="ink-live"></canvas>
         <p class="caption" style="margin-top:0;margin-bottom:1rem;opacity:0.55;font-size:clamp(0.75rem,1.5vw,1rem);">Any image → particles</p>
-        <canvas class="print-frame" aria-hidden="true"></canvas>
       </section>
     </main>
 
@@ -153,29 +155,25 @@
         var SHAPE = (shapeParam === 'round' || shapeParam === 'soft' || shapeParam === 'square')
           ? shapeParam : undefined;
 
-        var canvas = document.getElementById("ink");
         var slides = Array.prototype.slice.call(
           document.querySelectorAll("section.slide")
         );
         var idx = 0;
 
         // Seeded formations shared by the morph slide (deterministic — spec §8).
-        // Declared here so buildStages() can reference them; assigned inside
-        // document.fonts.ready.then() so the web font is loaded before sampling.
         var ptsFrom;
         var ptsTo;
 
-        // One InkStage per slide, each bound to the same shared canvas.
+        // One InkStage per slide, each bound to that slide's own canvas.
         var stages = [];
 
-        function fullBleedRect() {
-          return { x: 0, y: 0, w: window.innerWidth, h: window.innerHeight };
-        }
-
         function buildStages() {
-          // Slide 0: title forms from particles, then hands off to the real <h1>.
+          // --- Slide 0: cover ---
+          // textReveal sets aria-hidden on the canvas; its onSettle fades the
+          // COVER canvas to opacity:0 and shows the h1 — affects only this slide.
+          var coverCanvas = slides[0].querySelector('canvas.ink-live');
           var coverH1 = slides[0].querySelector('[data-ink="title"]');
-          stages[0] = Inkmote.textReveal(canvas, coverH1, {
+          stages[0] = Inkmote.textReveal(coverCanvas, coverH1, {
             text: coverH1.textContent,
             font: FONT,
             n: N,
@@ -183,8 +181,9 @@
             shape: SHAPE,
           });
 
-          // Slide 1: morph between the two seeded formations.
-          stages[1] = Inkmote.sceneMorph(canvas, {
+          // --- Slide 1: morph ---
+          var morphCanvas = slides[1].querySelector('canvas.ink-live');
+          stages[1] = Inkmote.sceneMorph(morphCanvas, {
             from: ptsFrom,
             to: ptsTo,
             n: N,
@@ -192,9 +191,10 @@
             shape: SHAPE,
           });
 
-          // Slide 2: stat number forms from particles, hands off to real text.
+          // --- Slide 2: stat number ---
+          var statCanvas = slides[2].querySelector('canvas.ink-live');
           var statEl = slides[2].querySelector('[data-ink="stat"]');
-          stages[2] = Inkmote.textReveal(canvas, statEl, {
+          stages[2] = Inkmote.textReveal(statCanvas, statEl, {
             text: statEl.getAttribute("data-value"),
             font: FONT,
             n: N,
@@ -202,31 +202,28 @@
             shape: SHAPE,
           });
 
-          // Slide 3: image → particles.
+          // --- Slide 3: image → particles ---
           // Build a high-contrast emblem on an offscreen canvas so the demo needs
-          // no binary assets. A real workflow would pass an HTMLImageElement here —
-          // e.g. an AI-generated photo — identically.
+          // no binary assets. A real workflow would pass an HTMLImageElement here.
           var emblem = document.createElement('canvas');
           emblem.width = 512;
           emblem.height = 512;
           var ec = emblem.getContext('2d');
           if (ec) {
-            // Paper background
             ec.fillStyle = '#f4f3ee';
             ec.fillRect(0, 0, 512, 512);
-            // Bold outer ring
             ec.beginPath();
             ec.arc(256, 256, 200, 0, Math.PI * 2);
             ec.strokeStyle = '#11131A';
             ec.lineWidth = 36;
             ec.stroke();
-            // Filled inner circle
             ec.beginPath();
             ec.arc(256, 256, 100, 0, Math.PI * 2);
             ec.fillStyle = '#11131A';
             ec.fill();
           }
-          stages[3] = Inkmote.imageReveal(canvas, emblem, {
+          var imageCanvas = slides[3].querySelector('canvas.ink-live');
+          stages[3] = Inkmote.imageReveal(imageCanvas, emblem, {
             n: N,
             seed: 3,
             shape: SHAPE,
@@ -253,19 +250,18 @@
           }
         });
 
-        // On print, snapshot each stage's current settled frame.
-        // NOTE: print renders native DOM text only — the shared #ink canvas is
-        // display:none in @media print. Per-slide static ink frames are a P1 item.
+        // On print, snapshot each stage's current settled frame into its slide's canvas.
         window.addEventListener("beforeprint", function () {
-          var rect = fullBleedRect();
-          stages.forEach(function (st) {
+          stages.forEach(function (st, i) {
+            if (!st) return;
+            var slideCanvas = slides[i].querySelector('canvas.ink-live');
+            var rect = { x: 0, y: 0, w: slideCanvas.clientWidth, h: slideCanvas.clientHeight };
             st.snapshotFor(rect);
           });
         });
 
         // Fonts: canvas text sampling must await document.fonts.ready (spec §8).
         document.fonts.ready.then(function () {
-          // Sample formations after fonts load so glyph geometry is deterministic.
           var rngFrom = Inkmote.createRng(41);
           var rngTo   = Inkmote.createRng(42);
           ptsFrom = Inkmote.fromText("idea",   N, { font: FONT, levels: 24 }, rngFrom);

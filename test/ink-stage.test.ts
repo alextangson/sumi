@@ -83,6 +83,35 @@ describe('createInkStage().isStatic()', () => {
   });
 });
 
+describe('createInkStage() canvas sizing', () => {
+  it('sizes canvas.width/height to non-default values on creation (jsdom fallback to innerWidth/innerHeight)', () => {
+    const canvas = fakeCanvas();
+    // jsdom: clientWidth=0, so resize() falls back to innerWidth (1024) / innerHeight (768).
+    const dpr = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, 2);
+    const stage = createInkStage(canvas, fakeField(), fakePalette(), { env: ALL_OFF });
+    expect(canvas.width).not.toBe(300);
+    expect(canvas.width).toBeGreaterThan(0);
+    expect(canvas.height).toBeGreaterThan(0);
+    expect(canvas.width).toBe(Math.round((typeof innerWidth === 'number' ? innerWidth : 1024) * dpr));
+    stage.destroy();
+  });
+
+  it('destroy() does not throw and removes the resize listener', () => {
+    const canvas = fakeCanvas();
+    const removed: string[] = [];
+    const orig = window.removeEventListener.bind(window);
+    const spy = (type: string, ...args: unknown[]) => {
+      removed.push(type);
+      return orig(type, ...(args as [EventListenerOrEventListenerObject]));
+    };
+    window.removeEventListener = spy as typeof window.removeEventListener;
+    const stage = createInkStage(canvas, fakeField(), fakePalette(), { env: ALL_OFF });
+    expect(() => stage.destroy()).not.toThrow();
+    expect(removed).toContain('resize');
+    window.removeEventListener = orig;
+  });
+});
+
 describe('createInkStage().morph() static mode', () => {
   afterEach(() => {
     document.body.innerHTML = '';

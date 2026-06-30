@@ -34,9 +34,33 @@ export function createInkStage(
   const shape: ParticleShape = opts?.shape ?? 'round';
 
   let rafId = 0;
-  const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
+  const dpr = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, 2);
   // Build sprite cache once per stage (not per frame)
   const sprites = buildSprites(palette, shape, dpr);
+
+  // Size the canvas backing store to match its CSS layout size.
+  // Called once at creation and on every window resize.
+  function resize(): void {
+    const cw = canvas.clientWidth || (typeof innerWidth === 'number' ? innerWidth : 300);
+    const ch = canvas.clientHeight || (typeof innerHeight === 'number' ? innerHeight : 150);
+    const bw = Math.round(cw * dpr);
+    const bh = Math.round(ch * dpr);
+    if (canvas.width !== bw || canvas.height !== bh) {
+      canvas.width = bw;
+      canvas.height = bh;
+    }
+  }
+
+  function onResize(): void {
+    resize();
+    // Redraw the last settled frame so the resized canvas isn't blank.
+    snapshotFor(fullRect());
+  }
+
+  resize();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', onResize);
+  }
 
   function isStatic(): boolean {
     return (
@@ -101,6 +125,9 @@ export function createInkStage(
     if (rafId) {
       cancelAnimationFrame(rafId);
       rafId = 0;
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', onResize);
     }
   }
 
