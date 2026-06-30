@@ -77,3 +77,54 @@ export function fromImage(
   const buf = canvasToPixelBuffer(canvas, ctx);
   return fromImageData(buf, n, opts, rng);
 }
+
+// NOTE: fromShape and fromSVGPath are visually smoke-tested in the gallery/playground.
+// They return [] in jsdom/SSR where getContext('2d') is null — see null-ctx guard.
+export function fromShape(
+  draw: (ctx: CanvasRenderingContext2D, size: number) => void,
+  n: number,
+  opts: SampleOpts,
+  rng: Rng,
+): Pt[] {
+  const size = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return [];
+  ctx.fillStyle = '#f4f3ee';
+  ctx.fillRect(0, 0, size, size);
+  draw(ctx, size);
+  const buf = canvasToPixelBuffer(canvas, ctx);
+  return fromImageData(buf, n, opts, rng);
+}
+
+export function fromSVGPath(
+  pathData: string,
+  n: number,
+  opts: SampleOpts & { viewBox?: [number, number, number, number] },
+  rng: Rng,
+): Pt[] {
+  const size = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return [];
+  ctx.fillStyle = '#f4f3ee';
+  ctx.fillRect(0, 0, size, size);
+  const path = new Path2D(pathData);
+  if (opts.viewBox) {
+    const [minX, minY, vbW, vbH] = opts.viewBox;
+    const fit = containRect(vbW, vbH, size, size);
+    ctx.save();
+    ctx.translate(fit.x - minX * (fit.w / vbW), fit.y - minY * (fit.h / vbH));
+    ctx.scale(fit.w / vbW, fit.h / vbH);
+  }
+  ctx.fillStyle = '#11131A';
+  ctx.fill(path);
+  if (opts.viewBox) ctx.restore();
+  const { viewBox: _vb, ...sampleOpts } = opts;
+  const buf = canvasToPixelBuffer(canvas, ctx);
+  return fromImageData(buf, n, sampleOpts, rng);
+}

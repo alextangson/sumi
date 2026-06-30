@@ -166,6 +166,62 @@ describe('createInkStage().morph() animate path', () => {
   });
 });
 
+describe('createInkStage() reduced-motion / mobile static fallback', () => {
+  it('isStatic() is true when reducedMotion:true (mode auto)', () => {
+    const stage = createInkStage(fakeCanvas(), fakeField(), fakePalette(), {
+      mode: 'auto',
+      env: { reducedMotion: true, mobile: false, printing: false },
+    });
+    expect(stage.isStatic()).toBe(true);
+    stage.destroy();
+  });
+
+  it('isStatic() is true when mobile:true (mode auto)', () => {
+    const stage = createInkStage(fakeCanvas(), fakeField(), fakePalette(), {
+      mode: 'auto',
+      env: { reducedMotion: false, mobile: true, printing: false },
+    });
+    expect(stage.isStatic()).toBe(true);
+    stage.destroy();
+  });
+
+  it('morph() settles synchronously (onSettle fires immediately) in static mode', () => {
+    const n = 2;
+    const pts: Pt[] = [{ x: -0.25, y: 0, lvl: 0 }, { x: 0.25, y: 0, lvl: 1 }];
+    const particles = pts.map(p => ({
+      targets: {} as Record<string, Pt>,
+      x: p.x, y: p.y, phase: 0, lvl: p.lvl,
+    }));
+    const field = {
+      particles, n,
+      setFormation(name: string, ps: Pt[]) {
+        for (let i = 0; i < n; i++) particles[i].targets[name] = ps[i];
+      },
+      step({ from, to, m }: { from: string; to: string; m: number; stagger?: number }) {
+        for (let i = 0; i < n; i++) {
+          const a = particles[i].targets[from];
+          const b = particles[i].targets[to];
+          particles[i].x = a.x + (b.x - a.x) * m;
+        }
+      },
+    };
+    field.setFormation('a', pts);
+    field.setFormation('b', pts.map(p => ({ ...p, x: -p.x })));
+
+    const stage = createInkStage(fakeCanvas(), field, fakePalette(), {
+      mode: 'auto',
+      env: { reducedMotion: true, mobile: false, printing: false },
+    });
+
+    let settled = false;
+    // In static mode, morph() must call onSettle synchronously (no rAF).
+    stage.morph('a', 'b', { onSettle: () => { settled = true; } });
+    // No await — if this is not synchronous, settled will be false here.
+    expect(settled).toBe(true);
+    stage.destroy();
+  });
+});
+
 describe('createInkStage().morph() static mode', () => {
   afterEach(() => {
     document.body.innerHTML = '';

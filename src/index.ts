@@ -1,6 +1,6 @@
 export type { Rng, Pt, WeightedPt, PixelBuffer, Rect } from './types';
 export { createRng } from './engine/rng';
-export { fromText, fromImage } from './engine/formations';
+export { fromText, fromImage, fromShape, fromSVGPath, fromImageData } from './engine/formations';
 export { textReveal } from './components/text-reveal';
 export type { TextRevealOpts } from './components/text-reveal';
 export { sceneMorph } from './components/scene-morph';
@@ -14,3 +14,4 @@ export { coverReveal } from './components/cover-reveal';
 export type { CoverRevealOpts } from './components/cover-reveal';
 export { statReveal, parseStatValue } from './components/stat-reveal';
 export type { StatRevealOpts, ParsedStatValue } from './components/stat-reveal';
+export { recommendedParticleCount } from './engine/budget';
