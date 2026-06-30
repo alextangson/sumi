@@ -30,6 +30,11 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
   field.setFormation('dispersed', cloud);
   field.setFormation('text', cloud);
 
+  // Start h1 invisible; both elements get CSS transitions for the handoff fade.
+  h1.style.opacity = '0';
+  h1.style.transition = 'opacity 600ms ease';
+  canvas.style.transition = 'opacity 600ms ease';
+
   const stage = createInkStage(canvas, field, palette);
   stage.scene('reveal', {
     formation: 'text',
@@ -40,11 +45,14 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
     await document.fonts.ready;
     const text = fromText(opts.text, n, { font, levels: 24 }, rng);
     field.setFormation('text', text);
-    stage.goto('reveal');
-    // Handoff: canvas fades out, native h1 fades to full opacity.
-    // The h1 is NEVER removed or replaced — same DOM node throughout.
-    canvas.style.opacity = '0';
-    h1.style.opacity = '1';
+    // Drive the particle coalesce animation; hand off to native h1 only after settle.
+    stage.morph('dispersed', 'text', {
+      durationMs: 1600,
+      onSettle: () => {
+        canvas.style.opacity = '0';
+        h1.style.opacity = '1';
+      },
+    });
   })();
 
   return stage;

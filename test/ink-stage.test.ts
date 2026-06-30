@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { createInkStage } from '../src/stage/ink-stage';
 import type { StageEnv } from '../src/stage/ink-stage';
 import type { Field } from '../src/engine/field';
 import type { Palette } from '../src/engine/palette';
+import type { Pt } from '../src/types';
 
 // Minimal fakes — InkStage only reads canvas for the (untested) DOM/rAF wiring.
 function fakeCanvas(): HTMLCanvasElement {
@@ -78,6 +79,53 @@ describe('createInkStage().isStatic()', () => {
       env: { reducedMotion: true, mobile: false, printing: false },
     });
     expect(stage.isStatic()).toBe(true);
+    stage.destroy();
+  });
+});
+
+describe('createInkStage().morph() static mode', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('calls onSettle synchronously in static mode and does not throw with null ctx', () => {
+    const n = 3;
+    const pts: Pt[] = Array.from({ length: n }, (_, i) => ({ x: i / n - 0.5, y: 0, lvl: i }));
+
+    // Build a real-ish field with two formations so field.step can run.
+    const particles = pts.map((p) => ({ targets: {} as Record<string, Pt>, x: p.x, y: p.y, phase: 0, lvl: p.lvl }));
+    const field = {
+      particles,
+      n,
+      setFormation(name: string, ps: Pt[]) {
+        for (let i = 0; i < n; i++) particles[i].targets[name] = ps[i];
+      },
+      step({ from, to, m }: { from: string; to: string; m: number; stagger?: number }) {
+        for (let i = 0; i < n; i++) {
+          const a = particles[i].targets[from];
+          const b = particles[i].targets[to];
+          particles[i].x = a.x + (b.x - a.x) * m;
+          particles[i].y = a.y + (b.y - a.y) * m;
+          particles[i].lvl = b.lvl;
+        }
+      },
+    };
+    field.setFormation('a', pts);
+    field.setFormation('b', pts.map((p) => ({ ...p, x: -p.x })));
+
+    const canvas = document.createElement('canvas');
+    // jsdom returns null for getContext('2d') — this tests the null-ctx guard.
+    const stage = createInkStage(canvas, field, fakePalette(), {
+      mode: 'static',
+      env: ALL_OFF,
+    });
+
+    let settled = false;
+    expect(() => {
+      stage.morph('a', 'b', { onSettle: () => { settled = true; } });
+    }).not.toThrow();
+
+    expect(settled).toBe(true);
     stage.destroy();
   });
 });

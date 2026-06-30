@@ -22,7 +22,7 @@ export function sceneMorph(canvas: HTMLCanvasElement, opts: SceneMorphOpts): Ink
     formation: 'to',
     choreography: [{ until: 1 }],
   });
-  stage.goto('morph');
+  stage.morph('from', 'to', { durationMs: 1600 });
 
   return stage;
 }

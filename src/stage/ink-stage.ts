@@ -2,18 +2,21 @@ import type { Rect } from '../types';
 import type { Field } from '../engine/field';
 import type { Palette } from '../engine/palette';
 import type { Phase } from '../engine/choreography';
+import { easeInOut } from '../engine/choreography';
 import { draw } from '../engine/renderer';
 import { mapNormalizedToRect } from './map';
 
 export type StageEnv = { reducedMotion: boolean; mobile: boolean; printing: boolean };
 export type StageMode = 'auto' | 'animate' | 'static';
 export type SceneDef = { formation: string; choreography?: Phase[] };
+export type MorphOpts = { durationMs?: number; stagger?: number; onSettle?: () => void };
 export type InkStage = {
   scene(name: string, def: SceneDef): void;
   goto(name: string): void;
   next(): void;
   isStatic(): boolean;
   snapshotFor(rect: Rect): void;
+  morph(from: string, to: string, opts?: MorphOpts): void;
   destroy(): void;
 };
 
@@ -74,6 +77,51 @@ export function createInkStage(
     if (ctx) draw(ctx, field, palette, rect, dpr);
   }
 
+  function fullRect(): Rect {
+    return {
+      x: 0,
+      y: 0,
+      w: canvas.clientWidth || canvas.width,
+      h: canvas.clientHeight || canvas.height,
+    };
+  }
+
+  function morph(from: string, to: string, opts?: MorphOpts): void {
+    const durationMs = opts?.durationMs ?? 1600;
+    const stagger = opts?.stagger ?? 0;
+    const currentDpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
+    const ctx = canvas.getContext('2d') as unknown as Parameters<typeof draw>[0] | null;
+
+    if (isStatic()) {
+      field.step({ from, to, m: 1, stagger });
+      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr);
+      opts?.onSettle?.();
+      return;
+    }
+
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
+
+    let start = -1;
+
+    function tick(time: number): void {
+      if (start < 0) start = time;
+      const m = easeInOut(Math.min(1, (time - start) / durationMs));
+      field.step({ from, to, m, stagger });
+      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr);
+      if (m >= 1) {
+        rafId = 0;
+        opts?.onSettle?.();
+      } else {
+        rafId = requestAnimationFrame(tick);
+      }
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
   function destroy(): void {
     if (rafId) {
       cancelAnimationFrame(rafId);
@@ -81,7 +129,7 @@ export function createInkStage(
     }
   }
 
-  return { scene, goto, next, isStatic, snapshotFor, destroy };
+  return { scene, goto, next, isStatic, snapshotFor, morph, destroy };
 }
 
 // `mapNormalizedToRect` re-exported so consumers can import the mapper from the
