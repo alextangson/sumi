@@ -57,6 +57,22 @@ describe('parseStatValue', () => {
     expect(r).not.toBeNull();
     expect(r!.num).toBeCloseTo(3.14);
   });
+
+  it('parses negative integer: "-5" → num -5, no prefix', () => {
+    const r = parseStatValue('-5');
+    expect(r).not.toBeNull();
+    expect(r!.num).toBe(-5);
+    expect(r!.prefix).toBe('');
+    expect(r!.suffix).toBe('');
+  });
+
+  it('parses negative decimal: "-3.14" → num -3.14, no prefix', () => {
+    const r = parseStatValue('-3.14');
+    expect(r).not.toBeNull();
+    expect(r!.num).toBeCloseTo(-3.14);
+    expect(r!.prefix).toBe('');
+    expect(r!.suffix).toBe('');
+  });
 });
 
 // ── statReveal component tests ────────────────────────────────────────────────
@@ -114,7 +130,7 @@ describe('statReveal', () => {
     expect(el.textContent).toBe('95%');
   });
 
-  it('with countUp, el starts with 0-form and eventually shows target after rAF', async () => {
+  it('with countUp, el starts with 0-form and eventually shows target after settle', async () => {
     const canvas = document.createElement('canvas');
     const el = document.createElement('span');
     el.textContent = '95%';
@@ -125,11 +141,15 @@ describe('statReveal', () => {
     // Before settle: el should show "0%" (countUp start)
     expect(el.textContent).toBe('0%');
 
-    // After settle, the MutationObserver fires and count-up begins.
-    // In jsdom, MutationObserver style changes don't auto-fire from textReveal's
-    // onSettle writing to el.style.opacity — we simulate that here.
+    // After textReveal settle, onSettle fires and count-up rAF begins.
+    // Wait for el opacity to reach '1' (set by textReveal's internal onSettle).
     await vi.waitFor(() => {
       expect(el.style.opacity).toBe('1');
+    }, { timeout: 3000 });
+
+    // count-up should eventually land on the target value
+    await vi.waitFor(() => {
+      expect(el.textContent).toBe('95%');
     }, { timeout: 3000 });
   });
 });

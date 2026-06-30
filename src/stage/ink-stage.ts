@@ -8,7 +8,14 @@ import { mapNormalizedToRect } from './map';
 
 export type StageEnv = { reducedMotion: boolean; mobile: boolean; printing: boolean };
 export type StageMode = 'auto' | 'animate' | 'static';
-export type MorphOpts = { durationMs?: number; stagger?: number; onSettle?: () => void; phases?: Phase[]; ease?: (t: number) => number };
+export type MorphOpts = {
+  durationMs?: number;
+  stagger?: number;
+  onSettle?: () => void;
+  phases?: Phase[];
+  /** Custom easing function. Should satisfy `ease(1) === 1`; the elapsed-time guard makes it safe regardless. */
+  ease?: (t: number) => number;
+};
 export type InkStage = {
   isStatic(): boolean;
   snapshotFor(rect: Rect): void;
@@ -108,7 +115,8 @@ export function createInkStage(
 
     function tick(time: number): void {
       if (start < 0) start = time;
-      const m = easedProgress((time - start) / durationMs, opts?.phases, opts?.ease);
+      const rawM = easedProgress((time - start) / durationMs, opts?.phases, opts?.ease);
+      const m = (time - start) >= durationMs ? 1 : rawM;
       field.step({ from, to, m, stagger });
       if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites);
       if (m >= 1) {

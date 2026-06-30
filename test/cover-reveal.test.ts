@@ -75,7 +75,7 @@ describe('coverReveal', () => {
       expect(wordmark.style.opacity).toBe('1');
     }, { timeout: 3000 });
 
-    // MutationObserver fires in jsdom when wordmark opacity changes — tagline should fade in too
+    // onSettle fires after textReveal settle — tagline should fade in too
     await vi.waitFor(() => {
       expect(tagline.style.opacity).toBe('1');
     }, { timeout: 3000 });

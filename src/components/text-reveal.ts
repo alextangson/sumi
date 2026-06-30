@@ -6,7 +6,7 @@ import { createPalette } from '../engine/palette';
 import { createInkStage, type InkStage } from '../stage/ink-stage';
 import type { ParticleShape } from '../engine/renderer';
 
-export type TextRevealOpts = { text: string; font?: string; n?: number; seed?: number; shape?: ParticleShape };
+export type TextRevealOpts = { text: string; font?: string; n?: number; seed?: number; shape?: ParticleShape; onSettle?: () => void };
 
 function dispersed(n: number, rng: Rng): Pt[] {
   return Array.from({ length: n }, () => ({
@@ -48,6 +48,7 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
       onSettle: () => {
         canvas.style.opacity = '0';
         h1.style.opacity = '1';
+        opts.onSettle?.();
       },
     });
   })();

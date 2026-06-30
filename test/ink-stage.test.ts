@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createInkStage } from '../src/stage/ink-stage';
 import type { StageEnv } from '../src/stage/ink-stage';
 import type { Field } from '../src/engine/field';
@@ -109,6 +109,60 @@ describe('createInkStage() canvas sizing', () => {
     expect(() => stage.destroy()).not.toThrow();
     expect(removed).toContain('resize');
     window.removeEventListener = orig;
+  });
+});
+
+describe('createInkStage().morph() animate path', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('animate path with custom ease terminates and fires onSettle (FIX 2 guard)', async () => {
+    const n = 3;
+    const pts = Array.from({ length: n }, (_, i) => ({ x: i / n - 0.5, y: 0, lvl: i }));
+    const particles = pts.map((p) => ({ targets: {} as Record<string, { x: number; y: number; lvl: number }>, x: p.x, y: p.y, phase: 0, lvl: p.lvl }));
+    const field = {
+      particles,
+      n,
+      setFormation(name: string, ps: typeof pts) {
+        for (let i = 0; i < n; i++) particles[i].targets[name] = ps[i];
+      },
+      step({ from, to, m }: { from: string; to: string; m: number; stagger?: number }) {
+        for (let i = 0; i < n; i++) {
+          const a = particles[i].targets[from];
+          const b = particles[i].targets[to];
+          particles[i].x = a.x + (b.x - a.x) * m;
+          particles[i].y = a.y + (b.y - a.y) * m;
+          particles[i].lvl = b.lvl;
+        }
+      },
+    };
+    field.setFormation('a', pts);
+    field.setFormation('b', pts.map((p) => ({ ...p, x: -p.x })));
+
+    const canvas = document.createElement('canvas');
+    // Use mode:'animate' so isStatic() returns false — exercises the rAF loop.
+    const stage = createInkStage(canvas, field, fakePalette(), {
+      mode: 'animate',
+      env: ALL_OFF,
+    });
+
+    let settled = false;
+    // A custom ease that never returns exactly 1 on its own (always returns 0.99*t).
+    // The elapsed-time guard in morph must force m=1 to terminate the loop.
+    const neverOne = (t: number) => t * 0.99;
+
+    stage.morph('a', 'b', {
+      durationMs: 50,
+      ease: neverOne,
+      onSettle: () => { settled = true; },
+    });
+
+    await vi.waitFor(() => {
+      expect(settled).toBe(true);
+    }, { timeout: 3000 });
+
+    stage.destroy();
   });
 });
 

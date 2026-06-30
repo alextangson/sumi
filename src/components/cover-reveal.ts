@@ -24,21 +24,13 @@ export function coverReveal(canvas: HTMLCanvasElement, opts: CoverRevealOpts): I
     n: opts.n,
     seed: opts.seed,
     shape: opts.shape,
-  });
-
-  if (tagline) {
-    // Wrap the original onSettle: textReveal fires it internally; we need to
-    // listen for the wordmark settling then fade in the tagline.
-    // textReveal does not expose onSettle, so we observe opacity change instead.
-    // Simplest correct approach: chain via MutationObserver on wordmark opacity.
-    const observer = new MutationObserver(() => {
-      if (wordmark.style.opacity === '1') {
-        observer.disconnect();
+    onSettle: () => {
+      if (tagline) {
+        tagline.style.transition = tagline.style.transition || 'opacity 600ms ease';
         tagline.style.opacity = '1';
       }
-    });
-    observer.observe(wordmark, { attributes: true, attributeFilter: ['style'] });
-  }
+    },
+  });
 
   return stage;
 }
