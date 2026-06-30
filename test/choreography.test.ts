@@ -80,4 +80,17 @@ describe('particleT', () => {
     expect(particleT(0, 0.5, 50, 100)).toBe(0);
     expect(particleT(1, 0.5, 50, 100)).toBe(1);
   });
+
+  it('returns globalT unchanged when stagger is 1 (degenerate case)', () => {
+    expect(particleT(0.5, 1, 0, 100)).toBe(0.5);
+    expect(particleT(0.5, 1, 99, 100)).toBe(0.5);
+    expect(particleT(0, 1, 50, 100)).toBe(0);
+    expect(particleT(1, 1, 50, 100)).toBe(1);
+  });
+
+  it('remains finite for stagger >= 1', () => {
+    expect(Number.isFinite(particleT(0.5, 1, 0, 100))).toBe(true);
+    expect(Number.isFinite(particleT(0.5, 1, 50, 100))).toBe(true);
+    expect(Number.isFinite(particleT(0.5, 1.5, 50, 100))).toBe(true);
+  });
 });

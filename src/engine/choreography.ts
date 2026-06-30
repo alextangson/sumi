@@ -35,7 +35,7 @@ export function particleT(
   i: number,
   n: number,
 ): number {
-  if (stagger <= 0) return globalT;
+  if (stagger <= 0 || stagger >= 1) return globalT;
   const start = (i / n) * stagger;
   const local = (globalT - start) / (1 - stagger);
   return Math.max(0, Math.min(1, local));
