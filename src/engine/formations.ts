@@ -38,6 +38,8 @@ export function fromText(
   canvas.width = 1024;
   canvas.height = 256;
   const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#f4f3ee';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#000';
   ctx.font = opts.font;
   ctx.textAlign = 'center';
@@ -58,6 +60,8 @@ export function fromImage(
   canvas.width = 1024;
   canvas.height = 1024;
   const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#f4f3ee';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   const buf = canvasToPixelBuffer(canvas, ctx);
   return fromImageData(buf, n, opts, rng);
