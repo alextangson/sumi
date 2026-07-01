@@ -2,7 +2,7 @@
 
 > Cinematic **ink sand-painting** particle layer for hero sections and decks — turn any image or text into a field of ink stipple that coalesces, morphs, disperses, and tilts in 3D to the cursor. Zero dependencies.
 
-![sumi](docs/hero.png)
+![sumi — particles coalesce into the wordmark, then tilt in 3D](docs/hero.gif)
 
 `sumi` (墨) samples an image, word, SVG path, or procedural shape into thousands of ink-colored particles on a single `<canvas>`, then choreographs them between formations. Formations carry real depth, so the field reads as a solid that tilts to the cursor — perspective and rotation, still on plain canvas2d. It's built for the moments a deck or landing page wants to feel alive — a title that assembles from dust, a key number that punches in, an image that drifts into being — without pulling in a framework or a WebGL stack.
 
