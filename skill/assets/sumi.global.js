@@ -270,6 +270,7 @@ var Sumi = (() => {
       y: 0,
       z: 0,
       phase: rng() * 2 * Math.PI,
+      dep: 0.3 + rng() * 0.7,
       lvl: 0
     }));
     return {
@@ -286,7 +287,7 @@ var Sumi = (() => {
         }
       },
       step(opts) {
-        const { from, to, m, stagger = 0 } = opts;
+        const { from, to, m, stagger = 0, scatter = 0 } = opts;
         if (n > 0) {
           const probe = particles[0].targets;
           if (!probe[from]) throw new Error(`step: formation "${from}" not set`);
@@ -300,6 +301,11 @@ var Sumi = (() => {
           p.x = a.x + (b.x - a.x) * t;
           p.y = a.y + (b.y - a.y) * t;
           p.z = (a.z ?? 0) + ((b.z ?? 0) - (a.z ?? 0)) * t;
+          if (scatter > 0) {
+            const sct = Math.sin(t * Math.PI) * scatter;
+            p.x += Math.cos(p.phase) * sct;
+            p.y += Math.sin(p.phase) * sct;
+          }
           p.lvl = b.lvl;
         }
       }
@@ -378,19 +384,34 @@ var Sumi = (() => {
   function bucketize(particles) {
     return particles.slice().sort((a, b) => a.lvl - b.lvl);
   }
-  function resolvePosition(p, rect, view) {
+  function resolvePosition(p, rect, view, now = 0, shimmerAmp = 0, parallaxAmp = 0) {
+    let x, y, sizeMul;
     if (view) {
       const focal = view.focal ?? 1.8;
       const pivotX = view.pivotX ?? 0;
       const pivotY = view.pivotY ?? 0;
       const proj = project3d(p.x, p.y, p.z, view.yaw, view.pitch, focal, pivotX, pivotY);
-      const mapped2 = mapNormalizedToRect(proj, rect);
-      return { x: mapped2.x, y: mapped2.y, sizeMul: proj.scale };
+      const mapped = mapNormalizedToRect(proj, rect);
+      x = mapped.x;
+      y = mapped.y;
+      sizeMul = proj.scale;
+      if (parallaxAmp > 0) {
+        x += view.yaw * parallaxAmp * p.dep;
+        y += view.pitch * parallaxAmp * p.dep;
+      }
+    } else {
+      const mapped = mapNormalizedToRect(p, rect);
+      x = mapped.x;
+      y = mapped.y;
+      sizeMul = 1;
     }
-    const mapped = mapNormalizedToRect(p, rect);
-    return { x: mapped.x, y: mapped.y, sizeMul: 1 };
+    if (shimmerAmp > 0) {
+      x += Math.sin(now * 11e-4 + p.phase) * shimmerAmp;
+      y += Math.cos(now * 13e-4 + p.phase) * shimmerAmp;
+    }
+    return { x, y, sizeMul };
   }
-  function draw(ctx, field, palette, rect, dpr, shape = "square", sprites = [], view) {
+  function draw(ctx, field, palette, rect, dpr, shape = "square", sprites = [], view, now = 0, shimmerAmp = 0, parallaxAmp = 0) {
     ctx.clearRect(rect.x * dpr, rect.y * dpr, rect.w * dpr, rect.h * dpr);
     const sorted = bucketize(field.particles);
     if (shape === "square" || sprites.length === 0) {
@@ -400,13 +421,13 @@ var Sumi = (() => {
           cur = p.lvl;
           ctx.fillStyle = palette.colors[cur];
         }
-        const { x, y, sizeMul } = resolvePosition(p, rect, view);
+        const { x, y, sizeMul } = resolvePosition(p, rect, view, now, shimmerAmp, parallaxAmp);
         const size = palette.sizes[cur] * sizeMul;
         ctx.fillRect(x * dpr, y * dpr, size * dpr, size * dpr);
       }
     } else {
       for (const p of sorted) {
-        const { x, y, sizeMul } = resolvePosition(p, rect, view);
+        const { x, y, sizeMul } = resolvePosition(p, rect, view, now, shimmerAmp, parallaxAmp);
         let eLvl = p.lvl;
         if (view !== void 0) {
           const shade = Math.round((sizeMul - 1) * 0.7 * palette.levels);
@@ -440,6 +461,7 @@ var Sumi = (() => {
       staticYaw: tiltInput?.staticYaw ?? 0.12,
       staticPitch: tiltInput?.staticPitch ?? 0.06
     };
+    const SHIMMER = 1.5, PARALLAX = 60, SCATTER = 0.09;
     let rafId = 0;
     const dpr = Math.min(typeof devicePixelRatio === "number" && devicePixelRatio || 1, 2);
     const sprites = buildSprites(palette, shape, dpr);
@@ -491,8 +513,11 @@ var Sumi = (() => {
     function snapshotFor(rect) {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+      const stat = isStatic();
       const view = tiltEnabled ? currentView(tiltOpts.staticYaw, tiltOpts.staticPitch) : void 0;
-      draw(ctx, field, palette, rect, dpr, shape, sprites, view);
+      const now = typeof performance !== "undefined" ? performance.now() : 0;
+      draw(ctx, field, palette, rect, dpr, shape, sprites, view, now, stat ? 0 : SHIMMER, tiltEnabled && !stat ? PARALLAX : 0);
+      if (!stat && !rafId) startIdleLoop();
     }
     function fullRect() {
       return {
@@ -503,7 +528,7 @@ var Sumi = (() => {
       };
     }
     let idleRafId = 0;
-    function idleTick() {
+    function idleTick(time) {
       if (document.hidden) {
         idleRafId = 0;
         return;
@@ -516,7 +541,7 @@ var Sumi = (() => {
       }
       const dpr2 = typeof devicePixelRatio === "number" && devicePixelRatio || 1;
       const ctx = canvas.getContext("2d");
-      if (ctx) draw(ctx, field, palette, fullRect(), dpr2, shape, sprites, currentView());
+      if (ctx) draw(ctx, field, palette, fullRect(), dpr2, shape, sprites, currentView(), time, SHIMMER, tiltEnabled ? PARALLAX : 0);
       idleRafId = requestAnimationFrame(idleTick);
     }
     function startIdleLoop() {
@@ -532,11 +557,11 @@ var Sumi = (() => {
       }
     }
     function onVisibilityChange() {
-      if (!document.hidden && idleRafId === 0 && rafId === 0) {
+      if (!document.hidden && idleRafId === 0 && rafId === 0 && !isStatic()) {
         idleRafId = requestAnimationFrame(idleTick);
       }
     }
-    if (tiltEnabled && typeof document !== "undefined") {
+    if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", onVisibilityChange);
     }
     function morph(from, to, opts2) {
@@ -563,18 +588,18 @@ var Sumi = (() => {
         if (start < 0) start = time;
         const rawM = easedProgress((time - start) / durationMs, opts2?.phases, opts2?.ease);
         const m = time - start >= durationMs ? 1 : rawM;
-        field.step({ from, to, m, stagger });
+        field.step({ from, to, m, stagger, scatter: SCATTER });
         if (tiltEnabled) {
           driftYaw += 4e-3;
           const drift = 0.05 * Math.sin(driftYaw);
           currentYaw += (targetYaw + drift - currentYaw) * tiltOpts.smoothing;
           currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
         }
-        if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites, currentView());
+        if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites, currentView(), time, SHIMMER, tiltEnabled ? PARALLAX : 0);
         if (m >= 1) {
           rafId = 0;
           opts2?.onSettle?.();
-          if (tiltEnabled) startIdleLoop();
+          startIdleLoop();
         } else {
           rafId = requestAnimationFrame(tick);
         }
@@ -587,7 +612,7 @@ var Sumi = (() => {
         rafId = 0;
       }
       stopIdleLoop();
-      if (tiltEnabled && typeof document !== "undefined") {
+      if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", onVisibilityChange);
       }
       if (typeof window !== "undefined") {

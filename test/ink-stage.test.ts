@@ -395,7 +395,7 @@ describe('createInkStage() idle loop after morph settle', () => {
     document.removeEventListener = origDocRemove;
   });
 
-  it('destroy() with tilt disabled does NOT remove visibilitychange listener', () => {
+  it('destroy() removes the visibilitychange listener even when tilt is disabled (idle loop runs for shimmer)', () => {
     const removedDoc: string[] = [];
     const origDocRemove = document.removeEventListener.bind(document);
     document.removeEventListener = (type: string, ...args: Parameters<typeof document.removeEventListener> extends [string, ...infer R] ? R : never) => {
@@ -410,7 +410,7 @@ describe('createInkStage() idle loop after morph settle', () => {
     });
     stage.destroy();
 
-    expect(removedDoc).not.toContain('visibilitychange');
+    expect(removedDoc).toContain('visibilitychange');
 
     document.removeEventListener = origDocRemove;
   });

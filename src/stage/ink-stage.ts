@@ -79,6 +79,9 @@ export function createInkStage(
     staticPitch: (tiltInput as TiltOpts | undefined)?.staticPitch ?? 0.06,
   };
 
+  // Alive defaults (design.md §3): per-grain shimmer amplitude (px), max per-grain parallax (px), mid-morph scatter (normalized).
+  const SHIMMER = 1.5, PARALLAX = 60, SCATTER = 0.09;
+
   let rafId = 0;
   const dpr = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, 2);
   // Build sprite cache once per stage (not per frame)
@@ -148,11 +151,14 @@ export function createInkStage(
   function snapshotFor(rect: Rect): void {
     const ctx = canvas.getContext('2d') as unknown as Parameters<typeof draw>[0] | null;
     if (!ctx) return;
+    const stat = isStatic();
     // In static mode render at the fixed oblique tilt for volumetric-but-still look.
     const view = tiltEnabled
       ? currentView(tiltOpts.staticYaw, tiltOpts.staticPitch)
       : undefined;
-    draw(ctx, field, palette, rect, dpr, shape, sprites, view);
+    const now = typeof performance !== 'undefined' ? performance.now() : 0;
+    draw(ctx, field, palette, rect, dpr, shape, sprites, view, now, stat ? 0 : SHIMMER, tiltEnabled && !stat ? PARALLAX : 0);
+    if (!stat && !rafId) startIdleLoop();   // keep the formation breathing (shimmer) even without a morph
   }
 
   function fullRect(): Rect {
@@ -171,7 +177,7 @@ export function createInkStage(
 
   let idleRafId = 0;
 
-  function idleTick(): void {
+  function idleTick(time: number): void {
     if (document.hidden) {
       idleRafId = 0;
       return; // Pause until visibilitychange resumes us
@@ -187,7 +193,8 @@ export function createInkStage(
     }
     const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
     const ctx = canvas.getContext('2d') as unknown as Parameters<typeof draw>[0] | null;
-    if (ctx) draw(ctx, field, palette, fullRect(), dpr, shape, sprites, currentView());
+    // now-driven shimmer keeps the settled field breathing (design.md §3); parallax only when tilt is live.
+    if (ctx) draw(ctx, field, palette, fullRect(), dpr, shape, sprites, currentView(), time, SHIMMER, tiltEnabled ? PARALLAX : 0);
     idleRafId = requestAnimationFrame(idleTick);
   }
 
@@ -206,13 +213,13 @@ export function createInkStage(
   }
 
   function onVisibilityChange(): void {
-    if (!document.hidden && idleRafId === 0 && rafId === 0) {
+    if (!document.hidden && idleRafId === 0 && rafId === 0 && !isStatic()) {
       // Page became visible while idle loop was paused — resume it
       idleRafId = requestAnimationFrame(idleTick);
     }
   }
 
-  if (tiltEnabled && typeof document !== 'undefined') {
+  if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', onVisibilityChange);
   }
 
@@ -248,7 +255,7 @@ export function createInkStage(
       if (start < 0) start = time;
       const rawM = easedProgress((time - start) / durationMs, opts?.phases, opts?.ease);
       const m = (time - start) >= durationMs ? 1 : rawM;
-      field.step({ from, to, m, stagger });
+      field.step({ from, to, m, stagger, scatter: SCATTER });
 
       // Smooth tilt angles toward target each frame (bounded sine sway — never
       // accumulates unbounded, which would spin the formation edge-on).
@@ -259,12 +266,12 @@ export function createInkStage(
         currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
       }
 
-      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites, currentView());
+      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites, currentView(), time, SHIMMER, tiltEnabled ? PARALLAX : 0);
       if (m >= 1) {
         rafId = 0;
         opts?.onSettle?.();
-        // Morph settled — hand off to idle loop if tilt is live.
-        if (tiltEnabled) startIdleLoop();
+        // Morph settled — hand off to the idle loop so shimmer (and tilt, if on) stay live.
+        startIdleLoop();
       } else {
         rafId = requestAnimationFrame(tick);
       }
@@ -279,7 +286,7 @@ export function createInkStage(
       rafId = 0;
     }
     stopIdleLoop();
-    if (tiltEnabled && typeof document !== 'undefined') {
+    if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     }
     if (typeof window !== 'undefined') {

@@ -79,17 +79,30 @@ function resolvePosition(
   p: Particle,
   rect: Rect,
   view?: ViewParams,
+  now = 0,
+  shimmerAmp = 0,
+  parallaxAmp = 0,
 ): { x: number; y: number; sizeMul: number } {
+  let x: number, y: number, sizeMul: number;
   if (view) {
     const focal = view.focal ?? 1.8;
     const pivotX = view.pivotX ?? 0;
     const pivotY = view.pivotY ?? 0;
     const proj = project3d(p.x, p.y, p.z, view.yaw, view.pitch, focal, pivotX, pivotY);
     const mapped = mapNormalizedToRect(proj, rect);
-    return { x: mapped.x, y: mapped.y, sizeMul: proj.scale };
+    x = mapped.x; y = mapped.y; sizeMul = proj.scale;
+    // Per-grain parallax: near/far grains shift by different amounts → volumetric, not a rigid tilt.
+    if (parallaxAmp > 0) { x += view.yaw * parallaxAmp * p.dep; y += view.pitch * parallaxAmp * p.dep; }
+  } else {
+    const mapped = mapNormalizedToRect(p, rect);
+    x = mapped.x; y = mapped.y; sizeMul = 1;
   }
-  const mapped = mapNormalizedToRect(p, rect);
-  return { x: mapped.x, y: mapped.y, sizeMul: 1 };
+  // Per-grain SHIMMER: tiny time-driven jitter so a settled formation still breathes (finally uses p.phase).
+  if (shimmerAmp > 0) {
+    x += Math.sin(now * 0.0011 + p.phase) * shimmerAmp;
+    y += Math.cos(now * 0.0013 + p.phase) * shimmerAmp;
+  }
+  return { x, y, sizeMul };
 }
 
 export function draw(
@@ -101,6 +114,9 @@ export function draw(
   shape: ParticleShape = 'square',
   sprites: HTMLCanvasElement[] = [],
   view?: ViewParams,
+  now = 0,
+  shimmerAmp = 0,
+  parallaxAmp = 0,
 ): void {
   ctx.clearRect(rect.x * dpr, rect.y * dpr, rect.w * dpr, rect.h * dpr);
   const sorted = bucketize(field.particles);
@@ -114,14 +130,14 @@ export function draw(
         cur = p.lvl;
         ctx.fillStyle = palette.colors[cur];
       }
-      const { x, y, sizeMul } = resolvePosition(p, rect, view);
+      const { x, y, sizeMul } = resolvePosition(p, rect, view, now, shimmerAmp, parallaxAmp);
       const size = palette.sizes[cur] * sizeMul;
       ctx.fillRect(x * dpr, y * dpr, size * dpr, size * dpr);
     }
   } else {
     // Sprite path: drawImage the pre-rendered offscreen canvas per particle.
     for (const p of sorted) {
-      const { x, y, sizeMul } = resolvePosition(p, rect, view);
+      const { x, y, sizeMul } = resolvePosition(p, rect, view, now, shimmerAmp, parallaxAmp);
       // Depth shading: near (sizeMul>1) → darker level, far (sizeMul<1) → fainter.
       // Only applied when view is present (3D mode); flat mode uses p.lvl unchanged.
       let eLvl = p.lvl;
