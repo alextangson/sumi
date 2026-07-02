@@ -59,7 +59,7 @@ describe('coverReveal', () => {
     expect(found?.textContent).toBe('Acme Corp');
   });
 
-  it('after settle, wordmark opacity is "1" and tagline fades in', async () => {
+  it('keeps the wordmark as living particles (DOM h1 yields) and fades the tagline in on settle', async () => {
     const canvas = document.createElement('canvas');
     const wordmark = document.createElement('h1');
     wordmark.textContent = 'Stello';
@@ -69,17 +69,18 @@ describe('coverReveal', () => {
     tagline.textContent = 'Build with intent';
     document.body.appendChild(tagline);
 
-    coverReveal(canvas, { wordmark, tagline, n: 16, seed: 1 });
+    const stage = coverReveal(canvas, { wordmark, tagline, n: 16, seed: 1 });
 
-    await vi.waitFor(() => {
-      expect(wordmark.style.opacity).toBe('1');
-    }, { timeout: 3000 });
+    // The living particle wordmark is the visible mark; the DOM h1 yields (opacity 0)
+    // but stays in the tree for SEO/AT.
+    expect(wordmark.style.opacity).toBe('0');
 
-    // onSettle fires after textReveal settle — tagline should fade in too
+    // onSettle fires after the coalesce — tagline fades in.
     await vi.waitFor(() => {
       expect(tagline.style.opacity).toBe('1');
     }, { timeout: 3000 });
 
     expect(tagline.style.transition).toContain('opacity');
+    stage.destroy();
   });
 });

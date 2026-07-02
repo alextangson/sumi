@@ -450,7 +450,8 @@ var Sumi = (() => {
   function createInkStage(canvas, field, palette, opts) {
     const mode = opts?.mode ?? "auto";
     const env = opts?.env ?? defaultEnv();
-    const shape = opts?.shape ?? "round";
+    const shape = opts?.shape ?? "soft";
+    const idleEnabled = opts?.idle !== false;
     const tiltInput = opts?.tilt;
     const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
     const tiltOpts = {
@@ -545,6 +546,7 @@ var Sumi = (() => {
       idleRafId = requestAnimationFrame(idleTick);
     }
     function startIdleLoop() {
+      if (!idleEnabled || isStatic()) return;
       if (idleRafId) return;
       if (!document.hidden) {
         idleRafId = requestAnimationFrame(idleTick);
@@ -557,9 +559,7 @@ var Sumi = (() => {
       }
     }
     function onVisibilityChange() {
-      if (!document.hidden && idleRafId === 0 && rafId === 0 && !isStatic()) {
-        idleRafId = requestAnimationFrame(idleTick);
-      }
+      if (!document.hidden && rafId === 0) startIdleLoop();
     }
     if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", onVisibilityChange);
@@ -630,7 +630,8 @@ var Sumi = (() => {
     return Array.from({ length: n }, () => ({
       x: rng() - 0.5,
       y: rng() - 0.5,
-      lvl: Math.floor(rng() * 24)
+      lvl: Math.floor(rng() * 7)
+      // faint ink dust (not full-contrast noise) → the coalesce reads as ink condensing
     }));
   }
   function textReveal(canvas, h1, opts) {
@@ -646,7 +647,7 @@ var Sumi = (() => {
     h1.style.opacity = "0";
     h1.style.transition = "opacity 600ms ease";
     canvas.style.transition = "opacity 600ms ease";
-    const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: false });
+    const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: false, idle: false });
     void (async () => {
       await document.fonts.ready;
       const text = fromText(opts.text, n, { font, levels: 24 }, rng);
@@ -687,7 +688,8 @@ var Sumi = (() => {
     return Array.from({ length: n }, () => ({
       x: rng() - 0.5,
       y: rng() - 0.5,
-      lvl: Math.floor(rng() * 24)
+      lvl: Math.floor(rng() * 7)
+      // faint ink dust (not full-contrast noise) → the coalesce reads as ink condensing
     }));
   }
   function imageReveal(canvas, img, opts) {
@@ -752,25 +754,50 @@ var Sumi = (() => {
   }
 
   // src/components/cover-reveal.ts
+  var DEFAULT_DEPTH_AMPLITUDE3 = 0.22;
+  function dispersed3(n, rng) {
+    return Array.from({ length: n }, () => ({
+      x: rng() - 0.5,
+      y: rng() - 0.5,
+      lvl: Math.floor(rng() * 7)
+      // faint ink dust → the coalesce reads as ink condensing
+    }));
+  }
   function coverReveal(canvas, opts) {
     const { wordmark, tagline } = opts;
     const text = wordmark.textContent ?? "";
+    canvas.setAttribute("aria-hidden", "true");
+    wordmark.style.opacity = "0";
     if (tagline) {
       tagline.style.opacity = "0";
       tagline.style.transition = "opacity 600ms ease";
     }
-    const stage = textReveal(canvas, wordmark, {
-      text,
-      n: opts.n,
-      seed: opts.seed,
-      shape: opts.shape,
-      onSettle: () => {
-        if (tagline) {
-          tagline.style.transition = tagline.style.transition || "opacity 600ms ease";
-          tagline.style.opacity = "1";
+    const n = opts.n ?? 8e3;
+    const font = opts.font ?? '600 120px "Noto Serif SC", serif';
+    const rng = createRng(opts.seed ?? 1);
+    const palette = createPalette([244, 243, 238], [17, 19, 24], 24);
+    const field = createField(n, rng);
+    const tiltInput = opts.tilt;
+    const tiltEnabled = tiltInput !== false && tiltInput?.depth !== false;
+    const amp = DEFAULT_DEPTH_AMPLITUDE3;
+    const rawCloud = dispersed3(n, rng);
+    const cloud = tiltEnabled ? withDepth(rawCloud, amp) : rawCloud;
+    field.setFormation("from", cloud);
+    field.setFormation("wordmark", cloud);
+    const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: tiltInput });
+    void (async () => {
+      await document.fonts.ready;
+      const rawText = fromText(text, n, { font, levels: 24 }, rng);
+      const base = rawText.length > 0 ? rawText : rawCloud;
+      const pts = tiltEnabled ? withDepth(base, amp) : base;
+      field.setFormation("wordmark", pts);
+      stage.morph("from", "wordmark", {
+        durationMs: 1600,
+        onSettle: () => {
+          if (tagline) tagline.style.opacity = "1";
         }
-      }
-    });
+      });
+    })();
     return stage;
   }
 

@@ -15,7 +15,7 @@ function dispersed(n: number, rng: Rng): Pt[] {
   return Array.from({ length: n }, () => ({
     x: rng() - 0.5,
     y: rng() - 0.5,
-    lvl: Math.floor(rng() * 24),
+    lvl: Math.floor(rng() * 7),   // faint ink dust (not full-contrast noise) → the coalesce reads as ink condensing
   }));
 }
 

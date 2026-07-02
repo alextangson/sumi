@@ -19,6 +19,7 @@ function makeFakeField() {
     z: 0,
     phase: 0,
     lvl: p.lvl,
+    dep: 0.5,
   }));
   const n = 3;
   const field = {

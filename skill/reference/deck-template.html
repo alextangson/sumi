@@ -14,7 +14,21 @@
         height: 100%;
         background: var(--bg);
         color: var(--ink);
-        font-family: ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+        font-family: "Space Grotesk", ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+      }
+
+      /* Mandatory paper grain — the warm-white must read as textured paper, not a
+         flat fill. Self-contained inline SVG (feTurbulence), no network. */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 9;
+        pointer-events: none;
+        opacity: 0.085;
+        mix-blend-mode: multiply;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+        background-size: 170px 170px;
       }
 
       /* Slides: fixed + toggled by .active. Off-screen slides stay in layout
@@ -54,21 +68,25 @@
         z-index: 1;
       }
 
-      /* Typography */
+      /* Typography — warm serif for large type (add a <link> to Noto Serif SC for
+         the exact face; falls back to a system serif offline). Grotesk for body. */
+      h1, h2, [data-ink="stat"] {
+        font-family: "Noto Serif SC", "Songti SC", Georgia, serif;
+      }
       h1 {
         font-size: clamp(2.5rem, 9vw, 7rem);
-        font-weight: 800;
-        letter-spacing: -0.02em;
+        font-weight: 600;
+        letter-spacing: -0.01em;
         margin: 0;
       }
       h2 {
         font-size: clamp(1.5rem, 4vw, 3rem);
-        font-weight: 700;
+        font-weight: 600;
         margin: 0 0 1rem;
       }
       [data-ink="stat"] {
         font-size: clamp(4rem, 18vw, 14rem);
-        font-weight: 800;
+        font-weight: 600;
         line-height: 1;
         margin: 0;
       }
@@ -165,7 +183,7 @@
       (function () {
         var Sumi = window.Sumi;
         var N = 8000;
-        var FONT = "800 10vw ui-sans-serif, system-ui, sans-serif";
+        var FONT = '600 10vw "Noto Serif SC", "Songti SC", Georgia, serif';
 
         var slides = Array.prototype.slice.call(document.querySelectorAll("section.slide"));
         var idx = 0;
@@ -183,11 +201,15 @@
         });
 
         document.fonts.ready.then(function () {
-          // --- Slide 0: cover title ---
+          // --- Slide 0: cover — LIVE wordmark. coverReveal coalesces ink dust into
+          //     the wordmark, then keeps it shimmering + tilting in 3D (the hero
+          //     stays alive; it does NOT hand off to flat text like textReveal). ---
           var coverCanvas = slides[0].querySelector("canvas.ink-live");
           var coverH1 = slides[0].querySelector("[data-ink='title']");
-          Sumi.textReveal(coverCanvas, coverH1, {
-            text: coverH1.textContent.trim(),
+          var coverTagline = slides[0].querySelector(".caption");
+          Sumi.coverReveal(coverCanvas, {
+            wordmark: coverH1,
+            tagline: coverTagline,
             font: FONT,
             n: N,
             seed: 7,

@@ -61,11 +61,13 @@ export function createInkStage(
   canvas: HTMLCanvasElement,
   field: Field,
   palette: Palette,
-  opts?: { mode?: StageMode; env?: StageEnv; shape?: ParticleShape; tilt?: TiltOpts | false },
+  opts?: { mode?: StageMode; env?: StageEnv; shape?: ParticleShape; tilt?: TiltOpts | false; idle?: boolean },
 ): InkStage {
   const mode: StageMode = opts?.mode ?? 'auto';
   const env: StageEnv = opts?.env ?? defaultEnv();
-  const shape: ParticleShape = opts?.shape ?? 'round';
+  const shape: ParticleShape = opts?.shape ?? 'soft';   // soft radial-gradient stipple = the tactile ink look, on by default
+  // Idle loop keeps a settled field breathing (shimmer). textReveal opts out (idle:false) — it fades to a flat <h1>, so a perpetual rAF into an invisible canvas would be waste.
+  const idleEnabled = opts?.idle !== false;
 
   // Tilt is ON by default; pass `tilt: false` or `tilt: { depth: false }` to disable.
   const tiltInput = opts?.tilt;
@@ -199,6 +201,7 @@ export function createInkStage(
   }
 
   function startIdleLoop(): void {
+    if (!idleEnabled || isStatic()) return; // opted-out / static: no perpetual idle rAF
     if (idleRafId) return; // already running
     if (!document.hidden) {
       idleRafId = requestAnimationFrame(idleTick);
@@ -213,10 +216,8 @@ export function createInkStage(
   }
 
   function onVisibilityChange(): void {
-    if (!document.hidden && idleRafId === 0 && rafId === 0 && !isStatic()) {
-      // Page became visible while idle loop was paused — resume it
-      idleRafId = requestAnimationFrame(idleTick);
-    }
+    // Page became visible while the idle loop was paused — resume it (startIdleLoop self-guards static/opted-out).
+    if (!document.hidden && rafId === 0) startIdleLoop();
   }
 
   if (typeof document !== 'undefined') {

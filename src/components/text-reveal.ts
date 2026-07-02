@@ -12,7 +12,7 @@ function dispersed(n: number, rng: Rng): Pt[] {
   return Array.from({ length: n }, () => ({
     x: rng() - 0.5,
     y: rng() - 0.5,
-    lvl: Math.floor(rng() * 24),
+    lvl: Math.floor(rng() * 7),   // faint ink dust (not full-contrast noise) → the coalesce reads as ink condensing
   }));
 }
 
@@ -38,7 +38,7 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
   h1.style.transition = 'opacity 600ms ease';
   canvas.style.transition = 'opacity 600ms ease';
 
-  const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: false });
+  const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: false, idle: false });
 
   void (async () => {
     await document.fonts.ready;

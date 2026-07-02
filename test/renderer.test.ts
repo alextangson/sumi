@@ -35,7 +35,7 @@ function makeRecordingCtx() {
 }
 
 function makeParticle(x: number, y: number, lvl: number): Particle {
-  return { targets: {}, x, y, z: 0, phase: 0, lvl };
+  return { targets: {}, x, y, z: 0, phase: 0, lvl, dep: 0.5 };
 }
 
 // 3 particles across 2 levels (lvl 0 and lvl 1), intentionally unsorted.
@@ -250,7 +250,7 @@ describe('draw', () => {
 });
 
 function makeParticleWithZ(x: number, y: number, z: number, lvl: number): Particle {
-  return { targets: {}, x, y, z, phase: 0, lvl };
+  return { targets: {}, x, y, z, phase: 0, lvl, dep: 0.5 };
 }
 
 describe('draw with view (3D perspective)', () => {
