@@ -464,6 +464,7 @@ var Sumi = (() => {
     };
     const SHIMMER = 1.5, PARALLAX = 60, SCATTER = 0.09;
     let rafId = 0;
+    let suppressIdleOnce = false;
     const dpr = Math.min(typeof devicePixelRatio === "number" && devicePixelRatio || 1, 2);
     const sprites = buildSprites(palette, shape, dpr);
     let currentYaw = 0;
@@ -569,6 +570,8 @@ var Sumi = (() => {
       const stagger = opts2?.stagger ?? 0;
       const currentDpr = typeof devicePixelRatio === "number" && devicePixelRatio || 1;
       const ctx = canvas.getContext("2d");
+      const suppressIdle = suppressIdleOnce;
+      suppressIdleOnce = false;
       if (isStatic()) {
         field.step({ from, to, m: 1, stagger });
         if (ctx) {
@@ -599,12 +602,41 @@ var Sumi = (() => {
         if (m >= 1) {
           rafId = 0;
           opts2?.onSettle?.();
-          startIdleLoop();
+          if (!suppressIdle) startIdleLoop();
         } else {
           rafId = requestAnimationFrame(tick);
         }
       }
       rafId = requestAnimationFrame(tick);
+    }
+    const EXIT_FROM = "__exitFrom";
+    const EXIT_TO = "__exitTo";
+    function disperseOut(opts2) {
+      if (field.n === 0) {
+        opts2?.onSettle?.();
+        return;
+      }
+      const spread = opts2?.spread ?? 0.55;
+      const durationMs = opts2?.durationMs ?? 800;
+      const fromPts = field.particles.map((p) => ({ x: p.x, y: p.y, z: p.z, lvl: p.lvl }));
+      const toPts = field.particles.map((p) => {
+        const mag = spread * (0.35 + p.dep * 0.9);
+        return {
+          x: p.x + Math.cos(p.phase) * mag,
+          y: p.y + Math.sin(p.phase) * mag,
+          z: p.z,
+          lvl: Math.floor(p.phase / (Math.PI * 2) * 6)
+          // fade toward faint ink dust
+        };
+      });
+      field.setFormation(EXIT_FROM, fromPts);
+      field.setFormation(EXIT_TO, toPts);
+      if (opts2?.fade !== false) {
+        canvas.style.transition = `opacity ${durationMs}ms ease`;
+        canvas.style.opacity = "0";
+      }
+      suppressIdleOnce = true;
+      morph(EXIT_FROM, EXIT_TO, { durationMs, onSettle: opts2?.onSettle });
     }
     function destroy() {
       if (rafId) {
@@ -622,7 +654,7 @@ var Sumi = (() => {
         canvas.removeEventListener("mousemove", onMouseMove);
       }
     }
-    return { isStatic, snapshotFor, morph, destroy };
+    return { isStatic, snapshotFor, morph, disperseOut, destroy };
   }
 
   // src/components/text-reveal.ts

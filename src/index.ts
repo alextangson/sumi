@@ -7,7 +7,7 @@ export { sceneMorph } from './components/scene-morph';
 export type { SceneMorphOpts } from './components/scene-morph';
 export { imageReveal } from './components/image-reveal';
 export type { ImageRevealOpts } from './components/image-reveal';
-export type { InkStage, MorphOpts, Phase, TiltOpts } from './stage/ink-stage';
+export type { InkStage, MorphOpts, Phase, TiltOpts, DisperseOpts } from './stage/ink-stage';
 export { easedProgress } from './engine/choreography';
 export { parseInkAttributes, autoInit } from './auto-init';
 export { coverReveal } from './components/cover-reveal';

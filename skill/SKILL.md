@@ -105,6 +105,24 @@ For live heroes prefer an explicit `coverReveal`/`imageReveal` call.
 threshold/contrast), `shape:'soft'` (default). The engine's shimmer amplitude, mid-morph
 scatter, and per-grain depth are on by default — leave them on.
 
+## Exits & pacing (the iron law's "scatter OUT")
+
+A scene should scatter back to dust on the way off, not hard-cut. Every stage exposes
+`stage.disperseOut({ durationMs?, spread?, fade?, onSettle? })` — it flings the settled
+grains outward along their own phase and fades the canvas. Keep the returned stage handle
+so you can call it when leaving a slide/section, then tear it down in `onSettle`.
+
+**Pace the handoff.** Never fire the next reveal the instant the last one ends — let the
+exit read, DWELL a beat (~250ms), *then* coalesce the next. The reference deck implements
+exactly this: on navigation it `disperseOut()`s the current slide, waits `HOLD_MS`, then
+recreates the next slide's reveal so every visit coalesces fresh.
+
+```js
+// leaving a slide:
+outStage.disperseOut({ durationMs: 700, onSettle: () => { outStage.destroy(); afterHold(); } });
+// afterHold(): setTimeout(() => { activate(next); enterReveal(next); }, 260)
+```
+
 ## Initialization
 
 Wrap in `document.fonts.ready.then(...)` (matters for `imageReveal` + serif fonts):

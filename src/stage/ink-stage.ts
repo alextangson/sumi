@@ -1,4 +1,4 @@
-import type { Rect } from '../types';
+import type { Pt, Rect } from '../types';
 import type { Field } from '../engine/field';
 import type { Palette } from '../engine/palette';
 import { easedProgress, type Phase } from '../engine/choreography';
@@ -17,10 +17,22 @@ export type MorphOpts = {
   /** Custom easing function. Should satisfy `ease(1) === 1`; the elapsed-time guard makes it safe regardless. */
   ease?: (t: number) => number;
 };
+/** Exit animation: scatter the settled field back out to ink dust (the reverse of a coalesce). */
+export type DisperseOpts = {
+  durationMs?: number;
+  /** Outward scatter distance in normalized field space (grains fling along their own phase). Default 0.55. */
+  spread?: number;
+  /** Fade the canvas to transparent as the grains fly apart. Default true. */
+  fade?: boolean;
+  onSettle?: () => void;
+};
+
 export type InkStage = {
   isStatic(): boolean;
   snapshotFor(rect: Rect): void;
   morph(from: string, to: string, opts?: MorphOpts): void;
+  /** Scatter the current formation outward into faint dust — the on-exit counterpart to a reveal. */
+  disperseOut(opts?: DisperseOpts): void;
   destroy(): void;
 };
 
@@ -85,6 +97,8 @@ export function createInkStage(
   const SHIMMER = 1.5, PARALLAX = 60, SCATTER = 0.09;
 
   let rafId = 0;
+  // Set for one morph by disperseOut so the settled exit does NOT resume the breathing idle loop.
+  let suppressIdleOnce = false;
   const dpr = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, 2);
   // Build sprite cache once per stage (not per frame)
   const sprites = buildSprites(palette, shape, dpr);
@@ -229,6 +243,9 @@ export function createInkStage(
     const stagger = opts?.stagger ?? 0;
     const currentDpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
     const ctx = canvas.getContext('2d') as unknown as Parameters<typeof draw>[0] | null;
+    // Consume the exit flag exactly once per morph, whatever path we take.
+    const suppressIdle = suppressIdleOnce;
+    suppressIdleOnce = false;
 
     if (isStatic()) {
       field.step({ from, to, m: 1, stagger });
@@ -271,14 +288,46 @@ export function createInkStage(
       if (m >= 1) {
         rafId = 0;
         opts?.onSettle?.();
-        // Morph settled — hand off to the idle loop so shimmer (and tilt, if on) stay live.
-        startIdleLoop();
+        // Morph settled — hand off to the idle loop so shimmer (and tilt, if on) stay
+        // live. An exit (disperseOut) suppresses this: no breathing into a torn-down canvas.
+        if (!suppressIdle) startIdleLoop();
       } else {
         rafId = requestAnimationFrame(tick);
       }
     }
 
     rafId = requestAnimationFrame(tick);
+  }
+
+  // ── Disperse-out (exit) ──────────────────────────────────────────────────
+  // The reverse of a coalesce: capture the field where it sits, fling each grain
+  // outward along its own phase into faint dust, and fade the canvas. The iron
+  // law wants scenes to scatter OUT on the way off, not just cut.
+  const EXIT_FROM = '__exitFrom';
+  const EXIT_TO = '__exitTo';
+
+  function disperseOut(opts?: DisperseOpts): void {
+    if (field.n === 0) { opts?.onSettle?.(); return; }
+    const spread = opts?.spread ?? 0.55;
+    const durationMs = opts?.durationMs ?? 800;
+    const fromPts: Pt[] = field.particles.map((p) => ({ x: p.x, y: p.y, z: p.z, lvl: p.lvl }));
+    const toPts: Pt[] = field.particles.map((p) => {
+      const mag = spread * (0.35 + p.dep * 0.9);   // depth-weighted: nearer grains fling farther
+      return {
+        x: p.x + Math.cos(p.phase) * mag,
+        y: p.y + Math.sin(p.phase) * mag,
+        z: p.z,
+        lvl: Math.floor((p.phase / (Math.PI * 2)) * 6),   // fade toward faint ink dust
+      };
+    });
+    field.setFormation(EXIT_FROM, fromPts);
+    field.setFormation(EXIT_TO, toPts);
+    if (opts?.fade !== false) {
+      canvas.style.transition = `opacity ${durationMs}ms ease`;
+      canvas.style.opacity = '0';
+    }
+    suppressIdleOnce = true;   // exit: don't resume the breathing idle loop
+    morph(EXIT_FROM, EXIT_TO, { durationMs, onSettle: opts?.onSettle });
   }
 
   function destroy(): void {
@@ -298,7 +347,7 @@ export function createInkStage(
     }
   }
 
-  return { isStatic, snapshotFor, morph, destroy };
+  return { isStatic, snapshotFor, morph, disperseOut, destroy };
 }
 
 // `mapNormalizedToRect` re-exported so consumers can import the mapper from the

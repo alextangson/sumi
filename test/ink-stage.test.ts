@@ -2,8 +2,9 @@
 import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
 import { createInkStage } from '../src/stage/ink-stage';
 import type { StageEnv } from '../src/stage/ink-stage';
-import type { Field } from '../src/engine/field';
-import type { Palette } from '../src/engine/palette';
+import { createField, type Field } from '../src/engine/field';
+import { createPalette, type Palette } from '../src/engine/palette';
+import { createRng } from '../src/engine/rng';
 import type { Pt } from '../src/types';
 
 // Minimal fakes — InkStage only reads canvas for the (untested) DOM/rAF wiring.
@@ -443,6 +444,53 @@ describe('createInkStage() idle loop after morph settle', () => {
     expect(cancelledIds.length).toBeGreaterThan(cancelsBeforeSecondMorph);
 
     globalThis.cancelAnimationFrame = origCancel;
+    stage.destroy();
+  });
+});
+
+describe('createInkStage().disperseOut()', () => {
+  function settledStage(n = 12) {
+    const rng = createRng(1);
+    const field = createField(n, rng);
+    const palette = createPalette([244, 243, 238], [17, 19, 24], 24);
+    const target: Pt[] = Array.from({ length: n }, (_, i) => ({ x: (i / n) - 0.5, y: 0.1, lvl: 18 }));
+    field.setFormation('a', target);
+    field.setFormation('b', target);
+    const canvas = document.createElement('canvas');
+    const stage = createInkStage(canvas, field, palette, { mode: 'static', env: ALL_OFF });
+    stage.morph('a', 'b', {});   // settle the field onto the target positions
+    return { field, canvas, stage };
+  }
+
+  it('scatters grains outward from their settled positions and fires onSettle (static)', () => {
+    const { field, stage } = settledStage();
+    const before = field.particles.map((p) => ({ x: p.x, y: p.y }));
+    let settled = false;
+    stage.disperseOut({ durationMs: 400, onSettle: () => { settled = true; } });
+    expect(settled).toBe(true);
+    const moved = field.particles.filter((p, i) => p.x !== before[i].x || p.y !== before[i].y).length;
+    expect(moved).toBe(field.n);   // every grain flung outward
+    stage.destroy();
+  });
+
+  it('fades the canvas to transparent by default, and leaves it opaque when fade:false', () => {
+    const a = settledStage();
+    a.stage.disperseOut({ durationMs: 300 });
+    expect(a.canvas.style.opacity).toBe('0');
+    a.stage.destroy();
+
+    const b = settledStage();
+    b.stage.disperseOut({ durationMs: 300, fade: false });
+    expect(b.canvas.style.opacity).not.toBe('0');
+    b.stage.destroy();
+  });
+
+  it('is a no-op that still fires onSettle on an empty field', () => {
+    const canvas = document.createElement('canvas');
+    const stage = createInkStage(canvas, fakeField(), fakePalette(), { mode: 'static', env: ALL_OFF });
+    let settled = false;
+    expect(() => stage.disperseOut({ onSettle: () => { settled = true; } })).not.toThrow();
+    expect(settled).toBe(true);
     stage.destroy();
   });
 });

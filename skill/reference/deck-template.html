@@ -184,15 +184,88 @@
         var Sumi = window.Sumi;
         var N = 8000;
         var FONT = '600 10vw "Noto Serif SC", "Songti SC", Georgia, serif';
+        // Pacing: dwell a beat after a slide scatters OUT before the next coalesces
+        // IN — reveals should never fire back-to-back. This hold is what makes the
+        // ink land instead of blur past.
+        var HOLD_MS = 260;
 
         var slides = Array.prototype.slice.call(document.querySelectorAll("section.slide"));
-        var idx = 0;
 
-        function show(i) {
-          idx = (i + slides.length) % slides.length;
-          slides.forEach(function (s, k) {
-            s.classList.toggle("active", k === idx);
-          });
+        // Each slide owns a factory that (re)creates its live particle stage and
+        // returns it — or null for text-only slides. Recreating on ENTRY lets every
+        // visit coalesce fresh; disperseOut() on EXIT scatters the field back to dust.
+        var makers = slides.map(function (s) {
+          var canvas = s.querySelector("canvas.ink-live");
+          if (!canvas) return null;
+          if (s.id === "slide-cover") {
+            return function () {
+              canvas.style.opacity = "1";
+              return Sumi.coverReveal(canvas, {
+                wordmark: s.querySelector("[data-ink='title']"),
+                tagline: s.querySelector(".caption"),
+                font: FONT, n: N, seed: 7,
+              });
+            };
+          }
+          if (s.id === "slide-stat") {
+            return function () {
+              canvas.style.opacity = "1";
+              var el = s.querySelector("[data-ink='stat']");
+              return Sumi.statReveal(canvas, el, { value: el.getAttribute("data-value"), n: N, seed: 11 });
+            };
+          }
+          if (s.id === "slide-image") {
+            return function () {
+              canvas.style.opacity = "1";
+              // Replace this emblem canvas with any HTMLImageElement for a real image:
+              //   var img = new Image(); img.src = "your-ai-image.png";
+              //   img.onload = function () { Sumi.imageReveal(canvas, img, { n: 5000, seed: 3 }); };
+              var emblem = document.createElement("canvas");
+              emblem.width = 512; emblem.height = 512;
+              var ec = emblem.getContext("2d");
+              if (ec) {
+                ec.fillStyle = "#f4f3ee"; ec.fillRect(0, 0, 512, 512);
+                ec.beginPath(); ec.arc(256, 256, 180, 0, Math.PI * 2);
+                ec.strokeStyle = "#1e2124"; ec.lineWidth = 40; ec.stroke();
+              }
+              return Sumi.imageReveal(canvas, emblem, { n: 5000, seed: 3, alt: "Describe the image for screen readers" });
+            };
+          }
+          return null;
+        });
+        var stages = slides.map(function () { return null; });
+        var idx = 0;
+        var busy = false;
+
+        function enter(i) {
+          if (makers[i] && !stages[i]) stages[i] = makers[i]();
+        }
+
+        function show(next) {
+          if (busy) return;
+          var target = (next + slides.length) % slides.length;
+          if (target === idx) return;
+          busy = true;
+          var from = idx;
+
+          function advance() {
+            // HOLD: let the exit read before the next reveal begins.
+            setTimeout(function () {
+              idx = target;
+              slides.forEach(function (s, k) { s.classList.toggle("active", k === idx); });
+              enter(idx);
+              busy = false;
+            }, HOLD_MS);
+          }
+
+          var st = stages[from];
+          if (st) {
+            stages[from] = null;
+            // Scatter OUT to dust, then tear the stage down and advance.
+            st.disperseOut({ durationMs: 700, onSettle: function () { st.destroy(); advance(); } });
+          } else {
+            advance();
+          }
         }
 
         window.addEventListener("keydown", function (e) {
@@ -201,54 +274,8 @@
         });
 
         document.fonts.ready.then(function () {
-          // --- Slide 0: cover — LIVE wordmark. coverReveal coalesces ink dust into
-          //     the wordmark, then keeps it shimmering + tilting in 3D (the hero
-          //     stays alive; it does NOT hand off to flat text like textReveal). ---
-          var coverCanvas = slides[0].querySelector("canvas.ink-live");
-          var coverH1 = slides[0].querySelector("[data-ink='title']");
-          var coverTagline = slides[0].querySelector(".caption");
-          Sumi.coverReveal(coverCanvas, {
-            wordmark: coverH1,
-            tagline: coverTagline,
-            font: FONT,
-            n: N,
-            seed: 7,
-          });
-
-          // --- Slide 1: stat ---
-          var statCanvas = slides[1].querySelector("canvas.ink-live");
-          var statEl = slides[1].querySelector("[data-ink='stat']");
-          Sumi.statReveal(statCanvas, statEl, {
-            value: statEl.getAttribute("data-value"),
-            n: N,
-            seed: 11,
-          });
-
-          // --- Slide 2: image reveal ---
-          // Replace the emblem canvas below with any HTMLImageElement for a real image:
-          //   var img = new Image(); img.src = "your-ai-image.png";
-          //   img.onload = function() { Sumi.imageReveal(imageCanvas, img, { n: 5000, seed: 3 }); };
-          var emblem = document.createElement("canvas");
-          emblem.width = 512;
-          emblem.height = 512;
-          var ec = emblem.getContext("2d");
-          if (ec) {
-            ec.fillStyle = "#f4f3ee";
-            ec.fillRect(0, 0, 512, 512);
-            ec.beginPath();
-            ec.arc(256, 256, 180, 0, Math.PI * 2);
-            ec.strokeStyle = "#1e2124";
-            ec.lineWidth = 40;
-            ec.stroke();
-          }
-          var imageCanvas = slides[2].querySelector("canvas.ink-live");
-          Sumi.imageReveal(imageCanvas, emblem, {
-            n: 5000,
-            seed: 3,
-            alt: "Describe the image for screen readers",
-          });
-
-          show(0);
+          slides.forEach(function (s, k) { s.classList.toggle("active", k === 0); });
+          enter(0);
         });
       })();
     </script>
