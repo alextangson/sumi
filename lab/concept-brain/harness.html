@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>concept-brain harness</title>
+<style>
+  :root { --bg:#f4f3ee; --ink:#1e2124; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font-family:'Space Grotesk', system-ui, sans-serif; }
+  /* Mandatory paper grain */
+  body::after{ content:""; position:fixed; inset:0; z-index:9; pointer-events:none;
+    opacity:.085; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+    background-size:170px 170px; }
+  figure.stage{ margin:0; position:fixed; inset:0; }
+  canvas.ink-live{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+  figcaption{ position:fixed; left:0; right:0; bottom:6vh; text-align:center;
+    font-family:'Noto Serif SC', serif; font-size:15px; letter-spacing:.04em; opacity:.5; z-index:1; }
+</style>
+</head>
+<body>
+<figure class="stage">
+  <canvas class="ink-live"></canvas>
+  <figcaption>render check</figcaption>
+</figure>
+<script src="../../skill/assets/sumi.global.js"></script>
+<script>
+  // The ONE variable each concept artifact overrides (plus the <figcaption> text).
+  // Placeholder = a filled disc, to prove the render path independent of illustration quality.
+  var CONCEPT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800"><circle cx="400" cy="400" r="190" fill="#1e2124"/></svg>';
+
+  document.fonts.ready.then(function () {
+    var canvas = document.querySelector('canvas.ink-live');
+    var caption = document.querySelector('figcaption').textContent;
+    var img = new Image();
+    img.onload = function () {
+      Sumi.imageReveal(canvas, img, { n: 7000, seed: 7, alt: caption });
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(CONCEPT_SVG);
+  });
+</script>
+</body>
+</html>
