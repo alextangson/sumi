@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>chaos → order · morph</title>
+<style>
+  :root { --bg:#f4f3ee; --ink:#1e2124; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font-family:'Space Grotesk', system-ui, sans-serif; overflow:hidden; }
+  body::after{ content:""; position:fixed; inset:0; z-index:9; pointer-events:none;
+    opacity:.085; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+    background-size:170px 170px; }
+  figure.stage{ margin:0; position:fixed; inset:0; }
+  canvas.ink-live{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+  .label{ position:fixed; left:0; right:0; bottom:7vh; text-align:center; z-index:1;
+    font-family:'Noto Serif SC', serif; font-size:17px; letter-spacing:.08em; }
+  .label .state{ opacity:.4; transition:opacity .6s ease; }
+  .label .state.on{ opacity:1; }
+  .label .arrow{ opacity:.28; margin:0 .5em; }
+</style>
+</head>
+<body>
+<figure class="stage"><canvas class="ink-live"></canvas></figure>
+<div class="label"><span class="state" id="s-a">混乱</span><span class="arrow">⇄</span><span class="state" id="s-b">秩序</span></div>
+
+<script src="../../skill/assets/sumi.global.js"></script>
+<script>
+  var N = 14000, SEED = 7, DUR = 2100, DWELL = 1900;
+  var REF_A = './refs/chaos-A.png', REF_B = './refs/chaos-B.png';
+
+  function loadImg(src){ return new Promise(function(res,rej){ var i=new Image(); i.onload=function(){res(i);}; i.onerror=rej; i.src=src; }); }
+  var sA=document.getElementById('s-a'), sB=document.getElementById('s-b');
+  function highlight(atB){ sB.classList.toggle('on',atB); sA.classList.toggle('on',!atB); }
+
+  Promise.all([ loadImg(REF_A), loadImg(REF_B), document.fonts.ready ]).then(function(r){
+    var imgA=r[0], imgB=r[1];
+    var canvas=document.querySelector('canvas.ink-live');
+    var rng=Sumi.createRng(SEED);
+    var ptsA=Sumi.fromImage(imgA, N, {levels:24}, rng);
+    var ptsB=Sumi.fromImage(imgB, N, {levels:24}, rng);
+
+    highlight(false);
+    var entrance=Sumi.imageReveal(canvas, imgA, {n:N, seed:SEED});   // dust → 混乱
+    setTimeout(function(){
+      entrance.destroy();
+      var stage=Sumi.sceneMorph(canvas, {from:ptsA, to:ptsB, n:N, seed:SEED});  // 混乱 → 秩序
+      setTimeout(function(){ highlight(true); }, DUR);
+      var atB=true;
+      function next(){ setTimeout(function(){
+        if(atB) stage.morph('to','from',{durationMs:DUR, onSettle:function(){atB=false; highlight(false); next();}});
+        else    stage.morph('from','to',{durationMs:DUR, onSettle:function(){atB=true;  highlight(true);  next();}});
+      }, DWELL); }
+      setTimeout(next, DUR+200);
+    }, 1600+1300);
+  });
+</script>
+</body>
+</html>
