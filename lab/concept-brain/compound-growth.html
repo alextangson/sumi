@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>concept-brain harness</title>
+<style>
+  :root { --bg:#f4f3ee; --ink:#1e2124; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font-family:'Space Grotesk', system-ui, sans-serif; }
+  /* Mandatory paper grain */
+  body::after{ content:""; position:fixed; inset:0; z-index:9; pointer-events:none;
+    opacity:.085; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+    background-size:170px 170px; }
+  figure.stage{ margin:0; position:fixed; inset:0; }
+  canvas.ink-live{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+  figcaption{ position:fixed; left:0; right:0; bottom:6vh; text-align:center;
+    font-family:'Noto Serif SC', serif; font-size:15px; letter-spacing:.04em; opacity:.5; z-index:1; }
+</style>
+</head>
+<body>
+<figure class="stage">
+  <canvas class="ink-live"></canvas>
+  <figcaption>复利增长</figcaption>
+</figure>
+<script src="../../skill/assets/sumi.global.js"></script>
+<script>
+  // 复利增长: seed (bottom-left) -> thick rising stem -> sparse->dense canopy of solid leaf-blades (top-right).
+  var CONCEPT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">'
+    + '<circle cx="158" cy="678" r="48" fill="#1e2124"/>'
+    + '<path d="M126 668 C 210 610, 262 528, 322 452 C 372 388, 430 336, 520 300 L 556 336 C 470 372, 412 424, 366 486 C 306 566, 250 640, 190 706 Z" fill="#1e2124"/>'
+    + '<g fill="#1e2124">'
+    + '<path d="M540 300 C 466 306, 424 348, 452 380 C 486 360, 528 344, 566 340 C 566 318, 556 302, 540 300 Z"/>'
+    + '<path d="M556 300 C 566 236, 606 202, 644 212 C 642 256, 606 292, 560 302 C 558 302, 557 301, 556 300 Z"/>'
+    + '<path d="M562 272 C 500 256, 466 212, 486 178 C 532 196, 570 232, 584 274 C 578 276, 568 275, 562 272 Z"/>'
+    + '<path d="M600 266 C 606 200, 654 166, 694 178 C 690 228, 648 266, 600 276 C 599 272, 599 269, 600 266 Z"/>'
+    + '<path d="M620 240 C 648 186, 710 174, 742 200 C 720 246, 664 268, 620 250 C 618 246, 618 243, 620 240 Z"/>'
+    + '<path d="M586 216 C 540 180, 528 118, 554 90 C 600 116, 624 170, 618 220 C 608 222, 594 220, 586 216 Z"/>'
+    + '<path d="M626 200 C 622 134, 664 88, 710 90 C 716 144, 682 194, 632 212 C 630 208, 627 204, 626 200 Z"/>'
+    + '<path d="M600 172 C 598 110, 636 64, 682 62 C 694 112, 664 164, 616 184 C 610 182, 603 178, 600 172 Z"/>'
+    + '<path d="M656 172 C 698 122, 764 122, 790 160 C 756 206, 692 216, 650 186 C 650 180, 652 176, 656 172 Z"/>'
+    + '<path d="M644 134 C 686 86, 756 82, 784 116 C 754 164, 688 176, 646 148 C 644 143, 643 138, 644 134 Z"/>'
+    + '</g>'
+    + '</svg>';
+
+  document.fonts.ready.then(function () {
+    var canvas = document.querySelector('canvas.ink-live');
+    var caption = document.querySelector('figcaption').textContent;
+    var img = new Image();
+    img.onload = function () {
+      Sumi.imageReveal(canvas, img, { n: 7000, seed: 7, alt: caption });
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(CONCEPT_SVG);
+  });
+</script>
+</body>
+</html>
