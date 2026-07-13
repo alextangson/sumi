@@ -1,10 +1,12 @@
 import type { Pt, Rng } from '../types';
 import { createRng } from '../engine/rng';
 import { fromText } from '../engine/formations';
+import { matchFormation } from '../engine/resample';
 import { createField } from '../engine/field';
 import { createPalette } from '../engine/palette';
 import { createInkStage, type InkStage } from '../stage/ink-stage';
 import type { ParticleShape } from '../engine/renderer';
+import { textSampleOptsForElement } from './text-layout';
 
 export type TextRevealOpts = { text: string; font?: string; n?: number; seed?: number; shape?: ParticleShape; onSettle?: () => void };
 
@@ -20,7 +22,6 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
   canvas.setAttribute('aria-hidden', 'true');
 
   const n = opts.n ?? 8000;
-  const font = opts.font ?? '700 120px sans-serif';
   const rng = createRng(opts.seed ?? 1);
   const palette = createPalette([244, 243, 238], [17, 19, 24], 24);
 
@@ -38,16 +39,28 @@ export function textReveal(canvas: HTMLCanvasElement, h1: HTMLElement, opts: Tex
   h1.style.transition = 'opacity 600ms ease';
   canvas.style.transition = 'opacity 600ms ease';
 
-  const stage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: false, idle: false });
+  const baseStage = createInkStage(canvas, field, palette, { shape: opts.shape, tilt: false, idle: false });
+  let destroyed = false;
+  const stage: InkStage = {
+    ...baseStage,
+    destroy(): void {
+      destroyed = true;
+      baseStage.destroy();
+    },
+  };
 
   void (async () => {
-    await document.fonts.ready;
-    const text = fromText(opts.text, n, { font, levels: 24 }, rng);
-    field.setFormation('text', text);
+    await (document.fonts?.ready ?? Promise.resolve());
+    if (destroyed) return;
+    const sampleOpts = textSampleOptsForElement(canvas, h1, opts.font);
+    const text = fromText(opts.text, n, sampleOpts, rng);
+    field.setFormation('text', matchFormation(cloud, text));
     // Drive the particle coalesce animation; hand off to native h1 only after settle.
     stage.morph('dispersed', 'text', {
       durationMs: 1600,
+      stagger: 0.12,
       onSettle: () => {
+        if (destroyed) return;
         canvas.style.opacity = '0';
         h1.style.opacity = '1';
         opts.onSettle?.();

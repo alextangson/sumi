@@ -1,9 +1,9 @@
-import type { Pt, Rect } from '../types';
+import type { MotionStyle, Pt, Rect } from '../types';
 import type { Field } from '../engine/field';
 import type { Palette } from '../engine/palette';
 import { easedProgress, type Phase } from '../engine/choreography';
 export type { Phase };
-import { draw, buildSprites, type ParticleShape, type ViewParams } from '../engine/renderer';
+import { createParticleRenderer, type ParticleShape, type ViewParams } from '../engine/renderer';
 export type { ViewParams };
 import { mapNormalizedToRect } from './map';
 
@@ -12,6 +12,8 @@ export type StageMode = 'auto' | 'animate' | 'static';
 export type MorphOpts = {
   durationMs?: number;
   stagger?: number;
+  /** GPU motion field used between formations. Default `flow`. */
+  motion?: MotionStyle;
   onSettle?: () => void;
   phases?: Phase[];
   /** Custom easing function. Should satisfy `ease(1) === 1`; the elapsed-time guard makes it safe regardless. */
@@ -31,6 +33,12 @@ export type InkStage = {
   isStatic(): boolean;
   snapshotFor(rect: Rect): void;
   morph(from: string, to: string, opts?: MorphOpts): void;
+  /** Pause the active morph or settled idle motion without losing progress. */
+  pause(): void;
+  /** Continue a morph or idle motion paused with `pause()`. */
+  resume(): void;
+  /** Cancel the active morph and render one named formation immediately. */
+  showFormation(name: string): void;
   /** Scatter the current formation outward into faint dust — the on-exit counterpart to a reveal. */
   disperseOut(opts?: DisperseOpts): void;
   destroy(): void;
@@ -94,14 +102,20 @@ export function createInkStage(
   };
 
   // Alive defaults (design.md §3): per-grain shimmer amplitude (px), max per-grain parallax (px), mid-morph scatter (normalized).
-  const SHIMMER = 1.5, PARALLAX = 60, SCATTER = 0.09;
+  const SHIMMER = 0.8, PARALLAX = 60, SCATTER = 0.075;
 
   let rafId = 0;
+  let isInViewport = true;
+  let isPaused = false;
+  let suspendMorph: (() => void) | undefined;
+  let resumeMorph: (() => void) | undefined;
   // Set for one morph by disperseOut so the settled exit does NOT resume the breathing idle loop.
   let suppressIdleOnce = false;
   const dpr = Math.min((typeof devicePixelRatio === 'number' && devicePixelRatio) || 1, 2);
-  // Build sprite cache once per stage (not per frame)
-  const sprites = buildSprites(palette, shape, dpr);
+  const renderer = createParticleRenderer(canvas, palette, shape, dpr);
+  canvas.dataset.sumiRenderer = renderer.backend;
+  renderer.setField(field);
+  let activeMorph: { from: string; to: string; m: number; stagger: number; motion: MotionStyle } | undefined;
 
   // 3D view state — smooth tracked angles
   let currentYaw = 0;
@@ -121,6 +135,7 @@ export function createInkStage(
       canvas.width = bw;
       canvas.height = bh;
     }
+    renderer.resize(bw, bh);
   }
 
   function onResize(): void {
@@ -137,14 +152,17 @@ export function createInkStage(
   function onMouseMove(e: MouseEvent): void {
     if (!tiltEnabled) return;
     const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
     const nx = (e.clientX - rect.left) / rect.width;  // 0..1
     const ny = (e.clientY - rect.top) / rect.height;   // 0..1
     targetYaw = (nx - 0.5) * tiltOpts.maxYaw * 2;
     targetPitch = (ny - 0.5) * tiltOpts.maxPitch * 2;
   }
 
-  if (tiltEnabled && typeof canvas.addEventListener === 'function') {
-    canvas.addEventListener('mousemove', onMouseMove);
+  // Track on window so full-bleed decorative canvases can keep
+  // `pointer-events:none` without disabling the tilt interaction.
+  if (tiltEnabled && typeof window !== 'undefined') {
+    window.addEventListener('mousemove', onMouseMove);
   }
 
   function isStatic(): boolean {
@@ -165,24 +183,44 @@ export function createInkStage(
   }
 
   function snapshotFor(rect: Rect): void {
-    const ctx = canvas.getContext('2d') as unknown as Parameters<typeof draw>[0] | null;
-    if (!ctx) return;
+    if (activeMorph) renderer.setMorph(field, activeMorph.from, activeMorph.to);
+    else renderer.setField(field);
     const stat = isStatic();
     // In static mode render at the fixed oblique tilt for volumetric-but-still look.
     const view = tiltEnabled
       ? currentView(tiltOpts.staticYaw, tiltOpts.staticPitch)
       : undefined;
     const now = typeof performance !== 'undefined' ? performance.now() : 0;
-    draw(ctx, field, palette, rect, dpr, shape, sprites, view, now, stat ? 0 : SHIMMER, tiltEnabled && !stat ? PARALLAX : 0);
+    renderer.render(
+      rect,
+      cssWidth(),
+      cssHeight(),
+      view,
+      now,
+      stat ? 0 : SHIMMER,
+      tiltEnabled && !stat ? PARALLAX : 0,
+      activeMorph?.m ?? 1,
+      activeMorph?.stagger ?? 0,
+      activeMorph ? SCATTER : 0,
+      activeMorph?.motion ?? 'direct',
+    );
     if (!stat && !rafId) startIdleLoop();   // keep the formation breathing (shimmer) even without a morph
+  }
+
+  function cssWidth(): number {
+    return canvas.clientWidth || canvas.width / dpr;
+  }
+
+  function cssHeight(): number {
+    return canvas.clientHeight || canvas.height / dpr;
   }
 
   function fullRect(): Rect {
     return {
       x: 0,
       y: 0,
-      w: canvas.clientWidth || canvas.width,
-      h: canvas.clientHeight || canvas.height,
+      w: cssWidth(),
+      h: cssHeight(),
     };
   }
 
@@ -207,15 +245,15 @@ export function createInkStage(
       currentYaw += (targetYaw + drift - currentYaw) * tiltOpts.smoothing;
       currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
     }
-    const dpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
-    const ctx = canvas.getContext('2d') as unknown as Parameters<typeof draw>[0] | null;
-    // now-driven shimmer keeps the settled field breathing (design.md §3); parallax only when tilt is live.
-    if (ctx) draw(ctx, field, palette, fullRect(), dpr, shape, sprites, currentView(), time, SHIMMER, tiltEnabled ? PARALLAX : 0);
+    // GPU-driven point rendering keeps the settled field breathing with one draw call.
+    renderer.render(fullRect(), cssWidth(), cssHeight(), currentView(), time, SHIMMER, tiltEnabled ? PARALLAX : 0);
     idleRafId = requestAnimationFrame(idleTick);
   }
 
   function startIdleLoop(): void {
     if (!idleEnabled || isStatic()) return; // opted-out / static: no perpetual idle rAF
+    if (isPaused) return;
+    if (!isInViewport) return;
     if (idleRafId) return; // already running
     if (!document.hidden) {
       idleRafId = requestAnimationFrame(idleTick);
@@ -238,24 +276,44 @@ export function createInkStage(
     document.addEventListener('visibilitychange', onVisibilityChange);
   }
 
+  const intersectionObserver = typeof IntersectionObserver === 'function'
+    ? new IntersectionObserver((entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        isInViewport = entry.isIntersecting;
+        if (isInViewport) {
+          if (rafId === 0) startIdleLoop();
+        } else {
+          stopIdleLoop();
+        }
+      }, { rootMargin: '120px' })
+    : undefined;
+  intersectionObserver?.observe(canvas);
+
   function morph(from: string, to: string, opts?: MorphOpts): void {
     const durationMs = opts?.durationMs ?? 1600;
     const stagger = opts?.stagger ?? 0;
-    const currentDpr = (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1;
-    const ctx = canvas.getContext('2d') as unknown as Parameters<typeof draw>[0] | null;
+    const motion = opts?.motion ?? 'flow';
     // Consume the exit flag exactly once per morph, whatever path we take.
     const suppressIdle = suppressIdleOnce;
     suppressIdleOnce = false;
+    renderer.setMorph(field, from, to);
+    activeMorph = { from, to, m: 0, stagger, motion };
+    isPaused = false;
+    suspendMorph = undefined;
+    resumeMorph = undefined;
 
     if (isStatic()) {
-      field.step({ from, to, m: 1, stagger });
-      if (ctx) {
-        // Static: render one settled frame at fixed oblique tilt.
-        const view = tiltEnabled
-          ? currentView(tiltOpts.staticYaw, tiltOpts.staticPitch)
-          : undefined;
-        draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites, view);
-      }
+      field.step({ from, to, m: 1, stagger, motion });
+      renderer.setField(field);
+      activeMorph = undefined;
+      // Static: render one settled frame at fixed oblique tilt.
+      const view = tiltEnabled
+        ? currentView(tiltOpts.staticYaw, tiltOpts.staticPitch)
+        : undefined;
+      renderer.render(fullRect(), cssWidth(), cssHeight(), view);
+      suspendMorph = undefined;
+      resumeMorph = undefined;
       opts?.onSettle?.();
       return;
     }
@@ -268,12 +326,13 @@ export function createInkStage(
     stopIdleLoop();
 
     let start = -1;
+    let pausedAt = -1;
 
     function tick(time: number): void {
       if (start < 0) start = time;
       const rawM = easedProgress((time - start) / durationMs, opts?.phases, opts?.ease);
       const m = (time - start) >= durationMs ? 1 : rawM;
-      field.step({ from, to, m, stagger, scatter: SCATTER });
+      if (activeMorph) activeMorph.m = m;
 
       // Smooth tilt angles toward target each frame (bounded sine sway — never
       // accumulates unbounded, which would spin the formation edge-on).
@@ -284,9 +343,26 @@ export function createInkStage(
         currentPitch += (targetPitch - currentPitch) * tiltOpts.smoothing;
       }
 
-      if (ctx) draw(ctx, field, palette, fullRect(), currentDpr, shape, sprites, currentView(), time, SHIMMER, tiltEnabled ? PARALLAX : 0);
+      renderer.render(
+        fullRect(),
+        cssWidth(),
+        cssHeight(),
+        currentView(),
+        time,
+        SHIMMER,
+        tiltEnabled ? PARALLAX : 0,
+        m,
+        stagger,
+        SCATTER,
+        motion,
+      );
       if (m >= 1) {
+        field.step({ from, to, m: 1, stagger, motion });
+        renderer.setField(field);
+        activeMorph = undefined;
         rafId = 0;
+        suspendMorph = undefined;
+        resumeMorph = undefined;
         opts?.onSettle?.();
         // Morph settled — hand off to the idle loop so shimmer (and tilt, if on) stay
         // live. An exit (disperseOut) suppresses this: no breathing into a torn-down canvas.
@@ -296,7 +372,57 @@ export function createInkStage(
       }
     }
 
+    suspendMorph = () => {
+      pausedAt = typeof performance !== 'undefined' ? performance.now() : 0;
+    };
+    resumeMorph = () => {
+      const now = typeof performance !== 'undefined' ? performance.now() : 0;
+      if (start >= 0 && pausedAt >= 0) start += now - pausedAt;
+      pausedAt = -1;
+      isPaused = false;
+      rafId = requestAnimationFrame(tick);
+    };
     rafId = requestAnimationFrame(tick);
+  }
+
+  function pause(): void {
+    if (isPaused) return;
+    isPaused = true;
+    stopIdleLoop();
+    if (activeMorph && rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+      suspendMorph?.();
+    }
+  }
+
+  function resume(): void {
+    if (!isPaused) return;
+    if (activeMorph && resumeMorph) {
+      resumeMorph();
+      return;
+    }
+    isPaused = false;
+    startIdleLoop();
+  }
+
+  function showFormation(name: string): void {
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
+    stopIdleLoop();
+    isPaused = false;
+    suspendMorph = undefined;
+    resumeMorph = undefined;
+    activeMorph = undefined;
+    field.step({ from: name, to: name, m: 1, motion: 'direct' });
+    renderer.setField(field);
+    const view = isStatic() && tiltEnabled
+      ? currentView(tiltOpts.staticYaw, tiltOpts.staticPitch)
+      : currentView();
+    renderer.render(fullRect(), cssWidth(), cssHeight(), view);
+    startIdleLoop();
   }
 
   // ── Disperse-out (exit) ──────────────────────────────────────────────────
@@ -308,6 +434,18 @@ export function createInkStage(
 
   function disperseOut(opts?: DisperseOpts): void {
     if (field.n === 0) { opts?.onSettle?.(); return; }
+    if (activeMorph) {
+      field.step({
+        from: activeMorph.from,
+        to: activeMorph.to,
+        m: activeMorph.m,
+        stagger: activeMorph.stagger,
+        scatter: SCATTER,
+        motion: activeMorph.motion,
+      });
+      renderer.setField(field);
+      activeMorph = undefined;
+    }
     const spread = opts?.spread ?? 0.55;
     const durationMs = opts?.durationMs ?? 800;
     const fromPts: Pt[] = field.particles.map((p) => ({ x: p.x, y: p.y, z: p.z, lvl: p.lvl }));
@@ -336,18 +474,23 @@ export function createInkStage(
       rafId = 0;
     }
     stopIdleLoop();
+    isPaused = true;
+    suspendMorph = undefined;
+    resumeMorph = undefined;
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     }
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', onResize);
     }
-    if (tiltEnabled && typeof canvas.removeEventListener === 'function') {
-      canvas.removeEventListener('mousemove', onMouseMove);
+    if (tiltEnabled && typeof window !== 'undefined') {
+      window.removeEventListener('mousemove', onMouseMove);
     }
+    intersectionObserver?.disconnect();
+    renderer.destroy();
   }
 
-  return { isStatic, snapshotFor, morph, disperseOut, destroy };
+  return { isStatic, snapshotFor, morph, pause, resume, showFormation, disperseOut, destroy };
 }
 
 // `mapNormalizedToRect` re-exported so consumers can import the mapper from the

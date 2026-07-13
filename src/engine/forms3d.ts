@@ -72,6 +72,68 @@ export function column(n: number, opts?: ColumnOpts, rng?: Rng): Pt[] {
 
 export type Pt3D = { x: number; y: number; z: number; lvl?: number };
 
+export type DoubleHelixOpts = {
+  /** Total height of the helix. Default 0.78. */
+  height?: number;
+  /** Radius from the center axis. Default 0.17. */
+  radius?: number;
+  /** Number of full turns. Default 2.6. */
+  turns?: number;
+  /** Fraction of particles used for cross-bar rungs. Default 0.22. */
+  rungFraction?: number;
+};
+
+/**
+ * Generate a recognizable DNA-like double helix with two volumetric strands
+ * and connecting rungs. Every point carries real z depth.
+ */
+export function doubleHelix(n: number, opts?: DoubleHelixOpts, rng?: Rng): Pt[] {
+  const height = opts?.height ?? 0.78;
+  const radius = opts?.radius ?? 0.17;
+  const turns = opts?.turns ?? 2.6;
+  const rungFraction = Math.max(0, Math.min(0.45, opts?.rungFraction ?? 0.22));
+  const rand = rng ?? (() => {
+    let s = 0x7f4a7c15 | 0;
+    return () => {
+      s = Math.imul(s ^ (s >>> 15), 0x2c1b3c6d) | 0;
+      return (s >>> 0) / 4294967296;
+    };
+  })();
+
+  const rungCount = Math.floor(n * rungFraction);
+  const strandCount = n - rungCount;
+  const perStrand = Math.max(1, Math.ceil(strandCount / 2));
+  const pts: Pt[] = [];
+
+  for (let i = 0; i < strandCount; i++) {
+    const strand = i & 1;
+    const rank = Math.floor(i / 2);
+    const t = Math.min(1, (rank + rand() * 0.35) / perStrand);
+    const angle = t * turns * Math.PI * 2 + strand * Math.PI;
+    const tube = (rand() - 0.5) * 0.018;
+    pts.push({
+      x: (radius + tube) * Math.cos(angle),
+      y: (t - 0.5) * height + (rand() - 0.5) * 0.012,
+      z: (radius + tube) * Math.sin(angle),
+      lvl: strand === 0 ? 21 : 16,
+    });
+  }
+
+  for (let i = 0; i < rungCount; i++) {
+    const t = (i + rand()) / Math.max(1, rungCount);
+    const angle = t * turns * Math.PI * 2;
+    const across = rand() * 2 - 1;
+    pts.push({
+      x: radius * across * Math.cos(angle),
+      y: (t - 0.5) * height + (rand() - 0.5) * 0.008,
+      z: radius * across * Math.sin(angle),
+      lvl: 11,
+    });
+  }
+
+  return pts;
+}
+
 /**
  * Resample arbitrary 3D points to exactly n, preserving z.
  *

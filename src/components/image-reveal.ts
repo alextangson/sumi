@@ -1,6 +1,7 @@
 import type { Pt, Rng } from '../types';
 import { createRng } from '../engine/rng';
 import { fromImage } from '../engine/formations';
+import { matchFormation } from '../engine/resample';
 import { createField } from '../engine/field';
 import { createPalette } from '../engine/palette';
 import { createInkStage, type InkStage, type TiltOpts } from '../stage/ink-stage';
@@ -51,11 +52,12 @@ export function imageReveal(
   // field which is fine — the unit test only checks stage shape and a11y attrs.
   const rawImagePts = fromImage(img, n, { levels: 24 }, rng);
   const rawFallback = rawImagePts.length > 0 ? rawImagePts : rawCloud;
-  const imagePts = tiltEnabled ? withDepth(rawFallback, amplitude) : rawFallback;
+  const matched = matchFormation(rawCloud, rawFallback);
+  const imagePts = tiltEnabled ? withDepth(matched, amplitude) : matched;
   field.setFormation('image', imagePts);
 
   const stage = createInkStage(canvas, field, palette, { shape: opts?.shape, tilt: tiltInput });
-  stage.morph('from', 'image', { durationMs: 1600 });
+  stage.morph('from', 'image', { durationMs: 1600, stagger: 0.1 });
 
   return stage;
 }

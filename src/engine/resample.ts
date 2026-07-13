@@ -1,5 +1,37 @@
 import type { Pt, WeightedPt, Rng } from '../types';
 
+function mortonKey(p: Pt): number {
+  const qx = Math.max(0, Math.min(1023, Math.round((p.x + 0.5) * 1023)));
+  const qy = Math.max(0, Math.min(1023, Math.round((p.y + 0.5) * 1023)));
+  let key = 0;
+  for (let bit = 0; bit < 10; bit++) {
+    key |= ((qx >> bit) & 1) << (bit * 2);
+    key |= ((qy >> bit) & 1) << (bit * 2 + 1);
+  }
+  return key;
+}
+
+/**
+ * Reorder a target formation so nearby source particles travel to nearby
+ * target particles. Morton ordering is a compact O(n log n) approximation to
+ * optimal transport that removes most long crossing paths without a dependency.
+ */
+export function matchFormation(source: Pt[], target: Pt[]): Pt[] {
+  if (source.length !== target.length) {
+    throw new Error(`matchFormation: expected equal lengths, got ${source.length} and ${target.length}`);
+  }
+
+  const sourceOrder = source.map((_, index) => index)
+    .sort((a, b) => mortonKey(source[a]) - mortonKey(source[b]));
+  const targetOrder = target.slice().sort((a, b) => mortonKey(a) - mortonKey(b));
+  const matched = new Array<Pt>(target.length);
+
+  for (let rank = 0; rank < sourceOrder.length; rank++) {
+    matched[sourceOrder[rank]] = targetOrder[rank];
+  }
+  return matched;
+}
+
 export function resampleToN(weighted: WeightedPt[], n: number, rng: Rng): Pt[] {
   const out: Pt[] = [];
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resampleToN } from '../src/engine/resample';
+import { matchFormation, resampleToN } from '../src/engine/resample';
 import { createRng } from '../src/engine/rng';
 import type { WeightedPt, Pt } from '../src/types';
 
@@ -84,5 +84,36 @@ describe('resampleToN', () => {
     for (const p of out) {
       expect(p).toEqual({ x: 0, y: 0, lvl: 0 });
     }
+  });
+});
+
+describe('matchFormation', () => {
+  it('reorders targets to remove long crossing paths', () => {
+    const source: Pt[] = [
+      { x: -0.4, y: -0.4, lvl: 1 },
+      { x: 0.4, y: 0.4, lvl: 2 },
+    ];
+    const reversedTarget: Pt[] = [
+      { x: 0.4, y: 0.4, lvl: 20 },
+      { x: -0.4, y: -0.4, lvl: 10 },
+    ];
+
+    expect(matchFormation(source, reversedTarget)).toEqual([
+      reversedTarget[1],
+      reversedTarget[0],
+    ]);
+  });
+
+  it('preserves every target point exactly once', () => {
+    const source: Pt[] = Array.from({ length: 20 }, (_, i) => ({
+      x: i / 20 - 0.5,
+      y: ((i * 7) % 20) / 20 - 0.5,
+      lvl: i,
+    }));
+    const target = source.slice().reverse();
+    const matched = matchFormation(source, target);
+
+    expect(matched).toHaveLength(target.length);
+    expect(new Set(matched)).toEqual(new Set(target));
   });
 });

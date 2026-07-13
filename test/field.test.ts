@@ -79,6 +79,38 @@ describe('Field.step', () => {
     expect(field.particles[0].lvl).toBe(3);
   });
 
+  it('ink-flow scatter bends the midpoint but preserves both endpoints', () => {
+    const field = createField(1, constRng(0.2));
+    const a: Pt[] = [{ x: -0.4, y: -0.2, lvl: 0 }];
+    const b: Pt[] = [{ x: 0.4, y: 0.2, lvl: 8 }];
+    field.setFormation('a', a);
+    field.setFormation('b', b);
+
+    field.step({ from: 'a', to: 'b', m: 0.5, scatter: 0.1 });
+    expect(Math.abs(field.particles[0].x) + Math.abs(field.particles[0].y)).toBeGreaterThan(0.001);
+
+    field.step({ from: 'a', to: 'b', m: 0, scatter: 0.1 });
+    expect(field.particles[0].x).toBeCloseTo(a[0].x, 10);
+    expect(field.particles[0].y).toBeCloseTo(a[0].y, 10);
+
+    field.step({ from: 'a', to: 'b', m: 1, scatter: 0.1 });
+    expect(field.particles[0].x).toBeCloseTo(b[0].x, 10);
+    expect(field.particles[0].y).toBeCloseTo(b[0].y, 10);
+  });
+
+  it('offers distinct deterministic midpoint paths for every motion style', () => {
+    const styles = ['direct', 'flow', 'burst', 'vortex', 'wave'] as const;
+    const positions = styles.map((motion) => {
+      const field = createField(1, constRng(0.23));
+      field.setFormation('a', [{ x: -0.35, y: -0.15, lvl: 1 }]);
+      field.setFormation('b', [{ x: 0.3, y: 0.25, lvl: 20 }]);
+      field.step({ from: 'a', to: 'b', m: 0.5, scatter: 0.12, motion });
+      return `${field.particles[0].x.toFixed(5)},${field.particles[0].y.toFixed(5)}`;
+    });
+
+    expect(new Set(positions).size).toBe(styles.length);
+  });
+
   it('throws a clear error when a formation name is not set', () => {
     const field = createField(2, constRng(0));
     const pts = ptsOf(2, (i) => ({ x: i * 0.1, y: i * 0.2, lvl: i }));

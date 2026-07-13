@@ -2,6 +2,17 @@ import type { Pt, PixelBuffer, Rng } from '../types';
 import { samplePixelBuffer, containRect, type SampleOpts } from './sample';
 import { resampleToN } from './resample';
 
+export type TextSampleOpts = {
+  font: string;
+  levels: number;
+  /** Maximum glyph dimension in normalized field space. Default 0.8. */
+  fit?: number;
+  /** Normalized offset from the canvas center. */
+  offsetX?: number;
+  /** Normalized offset from the canvas center. */
+  offsetY?: number;
+};
+
 // Pure composition: darkness-weighted sample -> resample to exactly n points.
 // Deterministic for a fixed (buf, opts, rng seed).
 export function fromImageData(
@@ -31,7 +42,7 @@ function canvasToPixelBuffer(
 export function fromText(
   text: string,
   n: number,
-  opts: { font: string; levels: number },
+  opts: TextSampleOpts,
   rng: Rng,
 ): Pt[] {
   // Use a square canvas so samplePixelBuffer's equal x/width and y/height
@@ -45,29 +56,27 @@ export function fromText(
   ctx.fillStyle = '#f4f3ee';
   ctx.fillRect(0, 0, size, size);
 
-  // Measure text at the caller-supplied font size, then scale to contain-fit
-  // within 80% of the square canvas, preserving aspect ratio exactly.
+  // Measure at the caller-supplied font, then scale the context rather than
+  // rewriting the font string. This supports every CSS unit accepted by canvas
+  // (including vw/vmin) and keeps complex font shorthands intact.
   ctx.font = opts.font;
   const metrics = ctx.measureText(text);
   const textW = metrics.width;
   const textH = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-  const target = size * 0.8;
-  const scale = textW > 0 && textH > 0
-    ? Math.min(target / textW, target / textH)
-    : 1;
-
-  // Extract the numeric font size and rebuild the font string at scaled size.
-  const match = opts.font.match(/(\d+(?:\.\d+)?)(px|pt|em|rem)/);
-  if (match) {
-    const origSize = parseFloat(match[1]);
-    const unit = match[2];
-    ctx.font = opts.font.replace(match[0], `${origSize * scale}${unit}`);
-  }
+  const maxDimension = Math.max(textW, textH);
+  const fit = Math.max(0.02, Math.min(0.98, opts.fit ?? 0.8));
+  const scale = maxDimension > 0 ? (size * fit) / maxDimension : 1;
+  const offsetX = (opts.offsetX ?? 0) * size;
+  const offsetY = (opts.offsetY ?? 0) * size;
 
   ctx.fillStyle = '#000';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, size / 2, size / 2);
+  ctx.save();
+  ctx.translate(size / 2 + offsetX, size / 2 + offsetY);
+  ctx.scale(scale, scale);
+  ctx.fillText(text, 0, 0);
+  ctx.restore();
   const buf = canvasToPixelBuffer(canvas, ctx);
   const sampleOpts: SampleOpts = { levels: opts.levels };
   return fromImageData(buf, n, sampleOpts, rng);

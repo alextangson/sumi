@@ -3,3 +3,4 @@ export type Pt = { x: number; y: number; lvl: number; z?: number }; // x,y norma
 export type WeightedPt = { x: number; y: number; weight: number; lvl: number };
 export type PixelBuffer = { data: Uint8ClampedArray; width: number; height: number }; // RGBA row-major
 export type Rect = { x: number; y: number; w: number; h: number };
+export type MotionStyle = 'direct' | 'flow' | 'burst' | 'vortex' | 'wave';

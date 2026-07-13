@@ -4,7 +4,7 @@
 
 ![sumi — particles coalesce into the wordmark, then tilt in 3D](docs/hero.gif)
 
-`sumi` (墨) samples an image, word, SVG path, or procedural shape into thousands of ink-colored particles on a single `<canvas>`, then choreographs them between formations. Formations carry real depth, so the field reads as a solid that tilts to the cursor — perspective and rotation, still on plain canvas2d. It's built for the moments a deck or landing page wants to feel alive — a title that assembles from dust, a key number that punches in, an image that drifts into being — without pulling in a framework or a WebGL stack.
+`sumi` (墨) samples an image, word, SVG path, or procedural shape into thousands of ink-colored particles on a single `<canvas>`, then choreographs them between formations. Formations carry real depth and render through a zero-dependency WebGL2 point pipeline, so perspective, rotation, material edges, and depth testing stay on the GPU. It's built for the moments a deck or landing page wants to feel alive — a title that assembles from dust, a key number that punches in, or an image that drifts into being — without pulling in a framework or a 3D dependency.
 
 ## Why sumi
 
@@ -12,8 +12,8 @@ Five things no existing particle library ships together:
 
 - **Image-sampled ink-stipple aesthetic** — warm-white paper, ink grains; not another twinkly tech-blue background.
 - **Formation-morph choreography** — the whole field morphs between named formations (text → image → shape → volumetric column) on a timeline, not just ambient drift.
-- **True-3D depth on canvas2d** — formations carry a `z` axis; the field projects in perspective and tilts to the cursor (a fixed oblique in static mode), reading as a rotating volumetric solid — no WebGL. On by default; `tilt: false` opts out.
-- **Zero-dependency, single-file canvas2d** — one `<script>`, no build, no WebGL, ~8 KB gzip. Drop it into any HTML deck or page.
+- **GPU-backed 3D depth** — formations carry a `z` axis; a WebGL2 vertex shader projects them in perspective and tilts to the cursor, while depth testing preserves near/far structure. On by default; `tilt: false` opts out.
+- **Zero-dependency, single-file WebGL2** — one `<script>`, no framework or 3D library, ~11 KB gzip. Drop it into any HTML deck or page.
 - **Reduced-motion / mobile static fallback baked in** — accessibility is the default, not a chore. Titles hand off to real, selectable `<h1>` text.
 
 ## Quickstart
@@ -75,17 +75,40 @@ Opt out per component with `tilt: false`, or tune it: `tilt: { maxYaw, maxPitch,
 |---|---|
 | `textReveal(canvas, h1, opts)` | particles form text → hand off to a crisp, selectable `<h1>` |
 | `imageReveal(canvas, img, opts)` | sample an image (AI-generated or any) into a persisting particle field |
-| `sceneMorph(canvas, opts)` | morph the field between two formations (`from` → `to`) |
+| `sceneMorph(canvas, opts)` | GPU morph between formations with `direct`, `flow`, `burst`, `vortex`, or `wave` motion |
+| `sequenceMorph(canvas, opts)` | orchestrate named formations with per-step motion, duration, hold, pause, resume, and replay |
 | `coverReveal(canvas, opts)` | wordmark + tagline cover preset |
 | `statReveal(canvas, el, opts)` | a big number that assembles then counts up |
 | `fromText` / `fromImage` / `fromSVGPath` / `fromShape` | build a 2D formation (`Pt[]`) from a source |
-| `column(n, opts, rng)` / `fromPoints3d(pts3d, n, rng)` | build a **volumetric** formation — a solid cylinder (body of revolution), or resampled arbitrary 3D points (each carries `z`) |
+| `column` / `doubleHelix` / `fromPoints3d` | build volumetric formations with real `z` depth |
+| `barChart` / `lineChart` / `donutChart` | turn data arrays into deterministic particle-chart formations |
 | `autoInit(root)` / `parseInkAttributes(root)` | declarative `data-ink-*` wiring |
 | `createRng(seed)` | seeded RNG — same seed → identical render |
 | `recommendedParticleCount({width, dpr})` | adaptive particle budget (capped at 15k) |
-| `InkStage` | `morph` / `snapshotFor` / `isStatic` / `destroy` — the runtime each component returns; drives the default 3D `tilt` (opt out with `tilt: false`) |
+| `InkStage` | `morph` / `pause` / `resume` / `showFormation` / `snapshotFor` / `destroy` — the WebGL2 runtime behind each component |
 
 Particle count, palette, shape, and seed are all configurable; the canvas is auto-sized to its CSS box (with resize handling).
+
+### Multi-step concept sequence
+
+```js
+const sequence = Sumi.sequenceMorph(canvas, {
+  formations: { idea, bars, trend, share, growth },
+  initial: 'idea',
+  steps: [
+    { to: 'bars',   motion: 'burst',  durationMs: 1500, holdMs: 500 },
+    { to: 'trend',  motion: 'wave',   durationMs: 1500, holdMs: 500 },
+    { to: 'share',  motion: 'vortex', durationMs: 1650, holdMs: 500 },
+    { to: 'growth', motion: 'flow',   durationMs: 1650 },
+  ],
+});
+
+sequence.pause();
+sequence.resume();
+sequence.replay();
+```
+
+The same particles persist through the full sequence. Each step uploads its two endpoints once, then WebGL2 performs interpolation and motion in the vertex shader. Reduced-motion and static environments render the final formation immediately.
 
 ## Try it
 
@@ -107,7 +130,7 @@ Then open:
 
 ## Accessibility & performance
 
-Real text stays in the DOM (titles hand off to a selectable `<h1>`; decorative canvases are `aria-hidden`). `prefers-reduced-motion` and small/mobile viewports auto-render a single static frame. Color-bucket batching + sprite caching keep ~15k particles smooth on a single canvas; the rAF loop pauses when hidden. See [docs/performance.md](docs/performance.md).
+Real text stays in the DOM (titles and covers hand off to selectable DOM text; decorative canvases are `aria-hidden`). `prefers-reduced-motion` and small/mobile viewports auto-render a single static frame. Particles are uploaded in one interleaved buffer and rendered in one WebGL2 draw call; persistent stages pause when hidden or outside the viewport. See [docs/performance.md](docs/performance.md).
 
 ## Framework adapters
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { column, fromPoints3d } from '../src/engine/forms3d';
+import { column, doubleHelix, fromPoints3d } from '../src/engine/forms3d';
 import { createRng } from '../src/engine/rng';
 
 // ── column ────────────────────────────────────────────────────────────────────
@@ -94,6 +94,30 @@ describe('column', () => {
     // With 2000 points filling a circle, max radius should be nearly reached on both sides
     expect(zMax).toBeGreaterThan(radius * 0.85);
     expect(zMin).toBeLessThan(-radius * 0.85);
+  });
+});
+
+describe('doubleHelix', () => {
+  it('returns exactly n deterministic volumetric points', () => {
+    const a = doubleHelix(1200, {}, createRng(44));
+    const b = doubleHelix(1200, {}, createRng(44));
+    expect(a).toHaveLength(1200);
+    expect(a).toEqual(b);
+    expect(a.every((point) => point.z !== undefined)).toBe(true);
+  });
+
+  it('spans both sides of every 3D axis and includes connector rungs', () => {
+    const points = doubleHelix(2000, { radius: 0.17, rungFraction: 0.25 }, createRng(7));
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    const zs = points.map((point) => point.z ?? 0);
+    expect(Math.min(...xs)).toBeLessThan(-0.14);
+    expect(Math.max(...xs)).toBeGreaterThan(0.14);
+    expect(Math.min(...ys)).toBeLessThan(-0.34);
+    expect(Math.max(...ys)).toBeGreaterThan(0.34);
+    expect(Math.min(...zs)).toBeLessThan(-0.14);
+    expect(Math.max(...zs)).toBeGreaterThan(0.14);
+    expect(points.some((point) => point.lvl === 11)).toBe(true);
   });
 });
 

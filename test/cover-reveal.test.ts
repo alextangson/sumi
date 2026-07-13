@@ -59,7 +59,7 @@ describe('coverReveal', () => {
     expect(found?.textContent).toBe('Acme Corp');
   });
 
-  it('keeps the wordmark as living particles (DOM h1 yields) and fades the tagline in on settle', async () => {
+  it('hands off to the crisp DOM wordmark and fades the tagline in on settle', async () => {
     const canvas = document.createElement('canvas');
     const wordmark = document.createElement('h1');
     wordmark.textContent = 'Stello';
@@ -71,8 +71,7 @@ describe('coverReveal', () => {
 
     const stage = coverReveal(canvas, { wordmark, tagline, n: 16, seed: 1 });
 
-    // The living particle wordmark is the visible mark; the DOM h1 yields (opacity 0)
-    // but stays in the tree for SEO/AT.
+    // DOM text yields while the GPU particles assemble.
     expect(wordmark.style.opacity).toBe('0');
 
     // onSettle fires after the coalesce — tagline fades in.
@@ -80,6 +79,8 @@ describe('coverReveal', () => {
       expect(tagline.style.opacity).toBe('1');
     }, { timeout: 3000 });
 
+    expect(wordmark.style.opacity).toBe('1');
+    expect(canvas.style.opacity).toBe('0');
     expect(tagline.style.transition).toContain('opacity');
     stage.destroy();
   });

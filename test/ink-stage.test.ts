@@ -343,7 +343,7 @@ describe('createInkStage() idle loop after morph settle', () => {
     stage.destroy();
   });
 
-  it('destroy() cancels the idle loop and removes mousemove + visibilitychange listeners', async () => {
+  it('destroy() cancels the idle loop and removes window mousemove + visibilitychange listeners', async () => {
     const cancelledIds: number[] = [];
     const origCancel = globalThis.cancelAnimationFrame;
     globalThis.cancelAnimationFrame = (id) => {
@@ -351,16 +351,16 @@ describe('createInkStage() idle loop after morph settle', () => {
       origCancel(id);
     };
 
-    const removedCanvas: string[] = [];
+    const removedWindow: string[] = [];
     const removedDoc: string[] = [];
 
     const canvas = document.createElement('canvas');
 
-    // Spy on canvas.removeEventListener
-    const origCanvasRemove = canvas.removeEventListener.bind(canvas);
-    canvas.removeEventListener = (type: string, ...args: Parameters<typeof canvas.removeEventListener> extends [string, ...infer R] ? R : never) => {
-      removedCanvas.push(type);
-      return origCanvasRemove(type, ...args);
+    // Pointer tracking lives on window so pointer-events:none canvases still tilt.
+    const origWindowRemove = window.removeEventListener.bind(window);
+    window.removeEventListener = (type: string, ...args: Parameters<typeof window.removeEventListener> extends [string, ...infer R] ? R : never) => {
+      removedWindow.push(type);
+      return origWindowRemove(type, ...args);
     };
 
     // Spy on document.removeEventListener
@@ -389,10 +389,11 @@ describe('createInkStage() idle loop after morph settle', () => {
     stage.destroy();
 
     expect(cancelledIds.length).toBeGreaterThan(0);
-    expect(removedCanvas).toContain('mousemove');
+    expect(removedWindow).toContain('mousemove');
     expect(removedDoc).toContain('visibilitychange');
 
     globalThis.cancelAnimationFrame = origCancel;
+    window.removeEventListener = origWindowRemove;
     document.removeEventListener = origDocRemove;
   });
 

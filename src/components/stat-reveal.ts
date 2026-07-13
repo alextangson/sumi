@@ -4,6 +4,7 @@ import type { ParticleShape } from '../engine/renderer';
 
 export type StatRevealOpts = {
   value: string;
+  font?: string;
   n?: number;
   seed?: number;
   shape?: ParticleShape;
@@ -48,6 +49,9 @@ export function statReveal(
   el.textContent = value;
 
   let onSettle: (() => void) | undefined;
+  let sampledValue = value;
+  let countRafId = 0;
+  let countDelayId: ReturnType<typeof setTimeout> | undefined;
 
   if (countUp) {
     const parsed = parseStatValue(value);
@@ -57,35 +61,47 @@ export function statReveal(
       const rawNumStr = /([0-9][0-9,.]*)/.exec(value)?.[1] ?? String(Math.abs(targetNum));
 
       // Start el at "0" display
-      el.textContent = prefix + formatNum(0, rawNumStr) + suffix;
+      sampledValue = prefix + formatNum(0, rawNumStr) + suffix;
+      el.textContent = sampledValue;
 
       onSettle = () => {
-        // Animate count-up over ~1s after particle settle
-        const duration = 1000;
-        const start = performance.now();
-        function tick(now: number): void {
-          const raw = Math.min(1, (now - start) / duration);
-          // ease-out: square root
-          const t = Math.sqrt(raw);
-          el.textContent = prefix + formatNum(t * targetNum, rawNumStr) + suffix;
-          if (raw < 1) {
-            requestAnimationFrame(tick);
-          } else {
-            el.textContent = prefix + formatNum(targetNum, rawNumStr) + suffix;
+        // Let the particle 0 and DOM 0 finish their 600ms crossfade before the
+        // number moves. This removes the double-exposure of two different values.
+        countDelayId = setTimeout(() => {
+          const duration = 600;
+          const start = performance.now();
+          function tick(now: number): void {
+            const raw = Math.min(1, (now - start) / duration);
+            // ease-out: square root
+            const t = Math.sqrt(raw);
+            el.textContent = prefix + formatNum(t * targetNum, rawNumStr) + suffix;
+            if (raw < 1) {
+              countRafId = requestAnimationFrame(tick);
+            } else {
+              el.textContent = prefix + formatNum(targetNum, rawNumStr) + suffix;
+            }
           }
-        }
-        requestAnimationFrame(tick);
+          countRafId = requestAnimationFrame(tick);
+        }, 600);
       };
     }
   }
 
-  const stage = textReveal(canvas, el, {
-    text: value,
+  const baseStage = textReveal(canvas, el, {
+    text: sampledValue,
+    font: opts.font,
     n: opts.n,
     seed: opts.seed,
     shape: opts.shape,
     onSettle,
   });
 
-  return stage;
+  return {
+    ...baseStage,
+    destroy(): void {
+      if (countRafId) cancelAnimationFrame(countRafId);
+      if (countDelayId !== undefined) clearTimeout(countDelayId);
+      baseStage.destroy();
+    },
+  };
 }
